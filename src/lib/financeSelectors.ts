@@ -35,6 +35,11 @@ export interface HomeSummary {
   financialPosition: FinancialPosition
 }
 
+export interface ExpenseDriver {
+  label: string
+  amount: number
+}
+
 export type ActivityFilter =
   | 'all'
   | 'income'
@@ -104,6 +109,27 @@ export function getMonthlyExpenses(data: PersonalFinanceData): number {
 
 export function getNetMonthlyPosition(data: PersonalFinanceData): number {
   return getMonthlyIncome(data) - getMonthlyExpenses(data)
+}
+
+export function getLargestExpenseDrivers(
+  data: PersonalFinanceData,
+  limit = 6,
+): readonly ExpenseDriver[] {
+  const totals = new Map<string, number>()
+
+  getMonthlyTransactions(data)
+    .filter((transaction) => transaction.direction === 'expense')
+    .forEach((transaction) => {
+      totals.set(
+        transaction.title,
+        (totals.get(transaction.title) ?? 0) + transaction.amount,
+      )
+    })
+
+  return [...totals.entries()]
+    .map(([label, amount]) => ({ label, amount }))
+    .sort((first, second) => second.amount - first.amount)
+    .slice(0, limit)
 }
 
 export function getOutstandingReceivables(data: PersonalFinanceData): number {
@@ -487,6 +513,46 @@ export function getPayableProgress(item: PlanningPayable): number {
   return getProgress(item.paidAmount, item.originalAmount)
 }
 
+export function getOutstandingReceivableItems(
+  data: PersonalFinanceData,
+): readonly PlanningReceivableView[] {
+  return sortByUrgency(
+    data.planningReceivables
+      .filter((item) => isReceivableOutstanding(item.status))
+      .map((item) => ({
+        id: item.id,
+        counterparty: item.counterparty,
+        originalAmount: item.originalAmount,
+        receivedAmount: item.receivedAmount,
+        remainingAmount: getReceivableRemaining(item),
+        dueDate: item.dueDate,
+        status: item.status,
+        note: item.note,
+        progress: getReceivableProgress(item),
+      })),
+  )
+}
+
+export function getOutstandingPayableItems(
+  data: PersonalFinanceData,
+): readonly PlanningPayableView[] {
+  return sortByUrgency(
+    data.planningPayables
+      .filter((item) => isPayableOutstanding(item.status))
+      .map((item) => ({
+        id: item.id,
+        counterparty: item.counterparty,
+        originalAmount: item.originalAmount,
+        paidAmount: item.paidAmount,
+        remainingAmount: getPayableRemaining(item),
+        dueDate: item.dueDate,
+        status: item.status,
+        note: item.note,
+        progress: getPayableProgress(item),
+      })),
+  )
+}
+
 export function getOutstandingPlanningReceivables(
   data: PersonalFinanceData,
 ): number {
@@ -650,6 +716,48 @@ export function getPriorityAttentionItems(
   return items
     .sort((first, second) => second.overdueDays - first.overdueDays)
     .slice(0, limit)
+}
+
+export function getAssistantAttentionItems(
+  data: PersonalFinanceData,
+): readonly PlanningAttentionItem[] {
+  const referenceDate = data.planningReferenceDate
+  const overdueReceivables = data.planningReceivables
+    .filter((item) => item.status === 'overdue')
+    .map((item) => ({
+      id: item.id,
+      title: item.counterparty,
+      type: 'receivable' as const,
+      amount: getReceivableRemaining(item),
+      dueDate: item.dueDate,
+      status: item.status,
+      overdueDays: getOverdueDays(item.dueDate, referenceDate),
+    }))
+  const overduePayables = data.planningPayables
+    .filter((item) => item.status === 'overdue')
+    .map((item) => ({
+      id: item.id,
+      title: item.counterparty,
+      type: 'payable' as const,
+      amount: getPayableRemaining(item),
+      dueDate: item.dueDate,
+      status: item.status,
+      overdueDays: getOverdueDays(item.dueDate, referenceDate),
+    }))
+  const overdueCommitments = data.planningCommitments
+    .filter((item) => item.status === 'overdue')
+    .map((item) => ({
+      id: item.id,
+      title: item.label,
+      type: 'commitment' as const,
+      amount: item.amount,
+      dueDate: item.dueDate,
+      status: item.status,
+      accountLabel: getAccountLabel(data, item.accountId),
+      overdueDays: getOverdueDays(item.dueDate, referenceDate),
+    }))
+
+  return [...overdueReceivables, ...overduePayables, ...overdueCommitments]
 }
 
 export function getItemsDueWithin7Days(
