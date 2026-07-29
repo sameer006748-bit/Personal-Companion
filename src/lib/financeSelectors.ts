@@ -1,11 +1,26 @@
-import { differenceInCalendarDays, parseISO } from 'date-fns'
+import {
+  addDays,
+  differenceInCalendarDays,
+  endOfMonth,
+  isWithinInterval,
+  parseISO,
+  startOfMonth,
+} from 'date-fns'
 
 import type {
   Account,
+  AccountId,
   Commitment,
   FinanceTransaction,
   FinancialPosition,
+  PayableStatus,
   PersonalFinanceData,
+  PlanningCommitment,
+  PlanningCommitmentStatus,
+  PlanningPayable,
+  PlanningReceivable,
+  ReceivableStatus,
+  TransactionCategory,
 } from '../models/finance'
 
 export interface HomeSummary {
@@ -293,4 +308,629 @@ export function getActivityTimelineGroups(
   })
 
   return [...groups.values()]
+}
+
+export type PlanningPeriod = 'this-month' | 'next-30-days'
+
+export type PlanningFilter =
+  | 'all'
+  | 'receivables'
+  | 'payables'
+  | 'commitments'
+  | 'upcoming'
+  | 'overdue'
+  | 'completed'
+
+export type PlanningItemType = 'receivable' | 'payable' | 'commitment'
+
+export type PlanningItemStatus =
+  | ReceivableStatus
+  | PayableStatus
+  | PlanningCommitmentStatus
+
+export interface PlanningSummary {
+  toReceive: number
+  toPay: number
+  upcomingCommitments: number
+  overdue: number
+  netOutstanding: number
+  overdueCount: number
+  upcomingCount: number
+}
+
+export interface PlanningAttentionItem {
+  id: string
+  title: string
+  type: PlanningItemType
+  amount: number
+  dueDate: string
+  status: PlanningItemStatus
+  accountLabel?: string | undefined
+  overdueDays: number
+}
+
+export interface PlanningReceivableView {
+  id: string
+  counterparty: string
+  originalAmount: number
+  receivedAmount: number
+  remainingAmount: number
+  dueDate: string
+  status: ReceivableStatus
+  note?: string | undefined
+  progress: number
+}
+
+export interface PlanningPayableView {
+  id: string
+  counterparty: string
+  originalAmount: number
+  paidAmount: number
+  remainingAmount: number
+  dueDate: string
+  status: PayableStatus
+  note?: string | undefined
+  progress: number
+}
+
+export interface PlanningCommitmentView {
+  id: string
+  label: string
+  category: TransactionCategory
+  amount: number
+  frequency: string
+  dueDate: string
+  status: PlanningCommitmentStatus
+  accountLabel?: string | undefined
+}
+
+export interface PlanningItems {
+  receivables: readonly PlanningReceivableView[]
+  payables: readonly PlanningPayableView[]
+  commitments: readonly PlanningCommitmentView[]
+}
+
+const receivableStatusLabels: Record<ReceivableStatus, string> = {
+  pending: 'Pending',
+  'partially-received': 'Partially Received',
+  overdue: 'Overdue',
+  received: 'Received',
+}
+
+const payableStatusLabels: Record<PayableStatus, string> = {
+  pending: 'Pending',
+  'partially-paid': 'Partially Paid',
+  overdue: 'Overdue',
+  paid: 'Paid',
+}
+
+const commitmentStatusLabels: Record<PlanningCommitmentStatus, string> = {
+  upcoming: 'Upcoming',
+  'due-soon': 'Due Soon',
+  paid: 'Paid',
+  overdue: 'Overdue',
+}
+
+const frequencyLabels: Record<PlanningCommitment['frequency'], string> = {
+  monthly: 'Monthly',
+  weekly: 'Weekly',
+  yearly: 'Yearly',
+}
+
+export function getPlanningStatusLabel(
+  type: PlanningItemType,
+  status: PlanningItemStatus,
+): string {
+  if (type === 'receivable') {
+    return receivableStatusLabels[status as ReceivableStatus]
+  }
+
+  if (type === 'payable') {
+    return payableStatusLabels[status as PayableStatus]
+  }
+
+  return commitmentStatusLabels[status as PlanningCommitmentStatus]
+}
+
+const completedReceivableStatuses: readonly ReceivableStatus[] = ['received']
+const completedPayableStatuses: readonly PayableStatus[] = ['paid']
+const completedCommitmentStatuses: readonly PlanningCommitmentStatus[] = ['paid']
+
+function isReceivableOutstanding(status: ReceivableStatus): boolean {
+  return !completedReceivableStatuses.includes(status)
+}
+
+function isPayableOutstanding(status: PayableStatus): boolean {
+  return !completedPayableStatuses.includes(status)
+}
+
+function isCommitmentOutstanding(status: PlanningCommitmentStatus): boolean {
+  return !completedCommitmentStatuses.includes(status)
+}
+
+function isReceivableCompleted(status: ReceivableStatus): boolean {
+  return completedReceivableStatuses.includes(status)
+}
+
+function isPayableCompleted(status: PayableStatus): boolean {
+  return completedPayableStatuses.includes(status)
+}
+
+function isCommitmentCompleted(status: PlanningCommitmentStatus): boolean {
+  return completedCommitmentStatuses.includes(status)
+}
+
+function getReceivableRemaining(item: PlanningReceivable): number {
+  return Math.max(0, item.originalAmount - item.receivedAmount)
+}
+
+function getPayableRemaining(item: PlanningPayable): number {
+  return Math.max(0, item.originalAmount - item.paidAmount)
+}
+
+function getProgress(
+  settled: number,
+  original: number,
+): number {
+  if (original <= 0) {
+    return 0
+  }
+
+  return Math.min(100, Math.round((settled / original) * 100))
+}
+
+export function getReceivableProgress(item: PlanningReceivable): number {
+  return getProgress(item.receivedAmount, item.originalAmount)
+}
+
+export function getPayableProgress(item: PlanningPayable): number {
+  return getProgress(item.paidAmount, item.originalAmount)
+}
+
+export function getOutstandingPlanningReceivables(
+  data: PersonalFinanceData,
+): number {
+  return sumAmounts(
+    data.planningReceivables.filter((item) => isReceivableOutstanding(item.status)),
+    (item) => getReceivableRemaining(item),
+  )
+}
+
+export function getOutstandingPlanningPayables(
+  data: PersonalFinanceData,
+): number {
+  return sumAmounts(
+    data.planningPayables.filter((item) => isPayableOutstanding(item.status)),
+    (item) => getPayableRemaining(item),
+  )
+}
+
+export function getNetOutstandingPosition(data: PersonalFinanceData): number {
+  return (
+    getOutstandingPlanningReceivables(data) - getOutstandingPlanningPayables(data)
+  )
+}
+
+export function getUpcomingCommitmentsTotal(
+  data: PersonalFinanceData,
+): number {
+  return sumAmounts(
+    data.planningCommitments.filter((item) =>
+      isCommitmentOutstanding(item.status),
+    ),
+    (item) => item.amount,
+  )
+}
+
+export function getOverdueTotal(data: PersonalFinanceData): number {
+  const overdueReceivables = sumAmounts(
+    data.planningReceivables.filter((item) => item.status === 'overdue'),
+    (item) => getReceivableRemaining(item),
+  )
+  const overduePayables = sumAmounts(
+    data.planningPayables.filter((item) => item.status === 'overdue'),
+    (item) => getPayableRemaining(item),
+  )
+  const overdueCommitments = sumAmounts(
+    data.planningCommitments.filter((item) => item.status === 'overdue'),
+    (item) => item.amount,
+  )
+
+  return overdueReceivables + overduePayables + overdueCommitments
+}
+
+export function getOverdueCount(data: PersonalFinanceData): number {
+  const overdueReceivables = data.planningReceivables.filter(
+    (item) => item.status === 'overdue',
+  ).length
+  const overduePayables = data.planningPayables.filter(
+    (item) => item.status === 'overdue',
+  ).length
+  const overdueCommitments = data.planningCommitments.filter(
+    (item) => item.status === 'overdue',
+  ).length
+
+  return overdueReceivables + overduePayables + overdueCommitments
+}
+
+export function getUpcomingCount(data: PersonalFinanceData): number {
+  const upcomingReceivables = data.planningReceivables.filter(
+    (item) => item.status === 'pending',
+  ).length
+  const upcomingPayables = data.planningPayables.filter(
+    (item) => item.status === 'pending',
+  ).length
+  const upcomingCommitments = data.planningCommitments.filter(
+    (item) => item.status === 'upcoming' || item.status === 'due-soon',
+  ).length
+
+  return upcomingReceivables + upcomingPayables + upcomingCommitments
+}
+
+export function getPlanningSummary(data: PersonalFinanceData): PlanningSummary {
+  return {
+    toReceive: getOutstandingPlanningReceivables(data),
+    toPay: getOutstandingPlanningPayables(data),
+    upcomingCommitments: getUpcomingCommitmentsTotal(data),
+    overdue: getOverdueTotal(data),
+    netOutstanding: getNetOutstandingPosition(data),
+    overdueCount: getOverdueCount(data),
+    upcomingCount: getUpcomingCount(data),
+  }
+}
+
+function getAccountLabel(
+  data: PersonalFinanceData,
+  accountId: AccountId | undefined,
+): string | undefined {
+  if (!accountId) {
+    return undefined
+  }
+
+  return data.accounts.find((account) => account.id === accountId)?.label
+}
+
+function getOverdueDays(dueDate: string, referenceDate: string): number {
+  return Math.max(
+    0,
+    differenceInCalendarDays(parseISO(referenceDate), parseISO(dueDate)),
+  )
+}
+
+export function getPriorityAttentionItems(
+  data: PersonalFinanceData,
+  limit = 3,
+): readonly PlanningAttentionItem[] {
+  const referenceDate = data.planningReferenceDate
+  const items: PlanningAttentionItem[] = []
+
+  data.planningReceivables
+    .filter((item) => item.status === 'overdue')
+    .forEach((item) => {
+      items.push({
+        id: item.id,
+        title: item.counterparty,
+        type: 'receivable',
+        amount: getReceivableRemaining(item),
+        dueDate: item.dueDate,
+        status: item.status,
+        overdueDays: getOverdueDays(item.dueDate, referenceDate),
+      })
+    })
+
+  data.planningPayables
+    .filter((item) => item.status === 'overdue')
+    .forEach((item) => {
+      items.push({
+        id: item.id,
+        title: item.counterparty,
+        type: 'payable',
+        amount: getPayableRemaining(item),
+        dueDate: item.dueDate,
+        status: item.status,
+        overdueDays: getOverdueDays(item.dueDate, referenceDate),
+      })
+    })
+
+  data.planningCommitments
+    .filter((item) => item.status === 'overdue')
+    .forEach((item) => {
+      items.push({
+        id: item.id,
+        title: item.label,
+        type: 'commitment',
+        amount: item.amount,
+        dueDate: item.dueDate,
+        status: item.status,
+        accountLabel: getAccountLabel(data, item.accountId),
+        overdueDays: getOverdueDays(item.dueDate, referenceDate),
+      })
+    })
+
+  return items
+    .sort((first, second) => second.overdueDays - first.overdueDays)
+    .slice(0, limit)
+}
+
+export function getItemsDueWithin7Days(
+  data: PersonalFinanceData,
+): readonly {
+  id: string
+  title: string
+  type: PlanningItemType
+  dueDate: string
+  amount: number
+}[] {
+  const referenceDate = parseISO(data.planningReferenceDate)
+  const horizon = addDays(referenceDate, 7)
+  const items: {
+    id: string
+    title: string
+    type: PlanningItemType
+    dueDate: string
+    amount: number
+  }[] = []
+
+  data.planningReceivables
+    .filter((item) => isReceivableOutstanding(item.status))
+    .forEach((item) => {
+      const due = parseISO(item.dueDate)
+      if (isWithinInterval(due, { start: referenceDate, end: horizon })) {
+        items.push({
+          id: item.id,
+          title: item.counterparty,
+          type: 'receivable',
+          dueDate: item.dueDate,
+          amount: getReceivableRemaining(item),
+        })
+      }
+    })
+
+  data.planningPayables
+    .filter((item) => isPayableOutstanding(item.status))
+    .forEach((item) => {
+      const due = parseISO(item.dueDate)
+      if (isWithinInterval(due, { start: referenceDate, end: horizon })) {
+        items.push({
+          id: item.id,
+          title: item.counterparty,
+          type: 'payable',
+          dueDate: item.dueDate,
+          amount: getPayableRemaining(item),
+        })
+      }
+    })
+
+  data.planningCommitments
+    .filter((item) => isCommitmentOutstanding(item.status))
+    .forEach((item) => {
+      const due = parseISO(item.dueDate)
+      if (isWithinInterval(due, { start: referenceDate, end: horizon })) {
+        items.push({
+          id: item.id,
+          title: item.label,
+          type: 'commitment',
+          dueDate: item.dueDate,
+          amount: item.amount,
+        })
+      }
+    })
+
+  return items.sort((first, second) =>
+    first.dueDate.localeCompare(second.dueDate),
+  )
+}
+
+function isInPeriod(date: string, period: PlanningPeriod, referenceDate: string): boolean {
+  const parsed = parseISO(date)
+  const reference = parseISO(referenceDate)
+
+  if (period === 'this-month') {
+    return isWithinInterval(parsed, {
+      start: startOfMonth(reference),
+      end: endOfMonth(reference),
+    })
+  }
+
+  return isWithinInterval(parsed, {
+    start: reference,
+    end: addDays(reference, 30),
+  })
+}
+
+function filterReceivablesByPeriod(
+  items: readonly PlanningReceivable[],
+  period: PlanningPeriod,
+  referenceDate: string,
+): readonly PlanningReceivable[] {
+  return items.filter((item) => isInPeriod(item.dueDate, period, referenceDate))
+}
+
+function filterPayablesByPeriod(
+  items: readonly PlanningPayable[],
+  period: PlanningPeriod,
+  referenceDate: string,
+): readonly PlanningPayable[] {
+  return items.filter((item) => isInPeriod(item.dueDate, period, referenceDate))
+}
+
+function filterCommitmentsByPeriod(
+  items: readonly PlanningCommitment[],
+  period: PlanningPeriod,
+  referenceDate: string,
+): readonly PlanningCommitment[] {
+  return items.filter((item) => isInPeriod(item.dueDate, period, referenceDate))
+}
+
+const urgencyRank: Record<PlanningItemStatus, number> = {
+  overdue: 0,
+  'partially-received': 1,
+  'partially-paid': 1,
+  'due-soon': 2,
+  pending: 3,
+  upcoming: 3,
+  received: 4,
+  paid: 4,
+}
+
+function sortByUrgency<T extends { dueDate: string; status: PlanningItemStatus }>(
+  items: readonly T[],
+): readonly T[] {
+  return [...items].sort((first, second) => {
+    const urgencyDiff = urgencyRank[first.status] - urgencyRank[second.status]
+
+    if (urgencyDiff !== 0) {
+      return urgencyDiff
+    }
+
+    return first.dueDate.localeCompare(second.dueDate)
+  })
+}
+
+export function getPlanningReceivables(
+  data: PersonalFinanceData,
+  period: PlanningPeriod = 'this-month',
+): readonly PlanningReceivableView[] {
+  const filtered = filterReceivablesByPeriod(
+    data.planningReceivables,
+    period,
+    data.planningReferenceDate,
+  )
+
+  return sortByUrgency(
+    filtered.map((item) => ({
+      id: item.id,
+      counterparty: item.counterparty,
+      originalAmount: item.originalAmount,
+      receivedAmount: item.receivedAmount,
+      remainingAmount: getReceivableRemaining(item),
+      dueDate: item.dueDate,
+      status: item.status,
+      note: item.note,
+      progress: getReceivableProgress(item),
+    })),
+  )
+}
+
+export function getPlanningPayables(
+  data: PersonalFinanceData,
+  period: PlanningPeriod = 'this-month',
+): readonly PlanningPayableView[] {
+  const filtered = filterPayablesByPeriod(
+    data.planningPayables,
+    period,
+    data.planningReferenceDate,
+  )
+
+  return sortByUrgency(
+    filtered.map((item) => ({
+      id: item.id,
+      counterparty: item.counterparty,
+      originalAmount: item.originalAmount,
+      paidAmount: item.paidAmount,
+      remainingAmount: getPayableRemaining(item),
+      dueDate: item.dueDate,
+      status: item.status,
+      note: item.note,
+      progress: getPayableProgress(item),
+    })),
+  )
+}
+
+export function getPlanningCommitments(
+  data: PersonalFinanceData,
+  period: PlanningPeriod = 'this-month',
+): readonly PlanningCommitmentView[] {
+  const filtered = filterCommitmentsByPeriod(
+    data.planningCommitments,
+    period,
+    data.planningReferenceDate,
+  )
+
+  return sortByUrgency(
+    filtered.map((item) => ({
+      id: item.id,
+      label: item.label,
+      category: item.category,
+      amount: item.amount,
+      frequency: frequencyLabels[item.frequency],
+      dueDate: item.dueDate,
+      status: item.status,
+      accountLabel: getAccountLabel(data, item.accountId),
+    })),
+  )
+}
+
+export function getPlanningItems(
+  data: PersonalFinanceData,
+  period: PlanningPeriod = 'this-month',
+): PlanningItems {
+  return {
+    receivables: getPlanningReceivables(data, period),
+    payables: getPlanningPayables(data, period),
+    commitments: getPlanningCommitments(data, period),
+  }
+}
+
+export function filterPlanningItems(
+  items: PlanningItems,
+  filter: PlanningFilter,
+): PlanningItems {
+  if (filter === 'all') {
+    return items
+  }
+
+  if (filter === 'receivables') {
+    return { ...items, payables: [], commitments: [] }
+  }
+
+  if (filter === 'payables') {
+    return { ...items, receivables: [], commitments: [] }
+  }
+
+  if (filter === 'commitments') {
+    return { ...items, receivables: [], payables: [] }
+  }
+
+  if (filter === 'upcoming') {
+    return {
+      receivables: items.receivables.filter((item) => item.status === 'pending'),
+      payables: items.payables.filter((item) => item.status === 'pending'),
+      commitments: items.commitments.filter(
+        (item) => item.status === 'upcoming' || item.status === 'due-soon',
+      ),
+    }
+  }
+
+  if (filter === 'overdue') {
+    return {
+      receivables: items.receivables.filter((item) => item.status === 'overdue'),
+      payables: items.payables.filter((item) => item.status === 'overdue'),
+      commitments: items.commitments.filter((item) => item.status === 'overdue'),
+    }
+  }
+
+  if (filter === 'completed') {
+    return {
+      receivables: items.receivables.filter((item) =>
+        isReceivableCompleted(item.status),
+      ),
+      payables: items.payables.filter((item) =>
+        isPayableCompleted(item.status),
+      ),
+      commitments: items.commitments.filter((item) =>
+        isCommitmentCompleted(item.status),
+      ),
+    }
+  }
+
+  return items
+}
+
+export function hasPlanningItems(items: PlanningItems): boolean {
+  return (
+    items.receivables.length > 0 ||
+    items.payables.length > 0 ||
+    items.commitments.length > 0
+  )
 }

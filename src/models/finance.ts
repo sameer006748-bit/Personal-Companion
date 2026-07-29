@@ -31,7 +31,21 @@ export type TransactionStatus =
   | 'overdue'
   | 'transfer'
 
+export type ReceivableStatus =
+  | 'pending'
+  | 'partially-received'
+  | 'overdue'
+  | 'received'
+
+export type PayableStatus = 'pending' | 'partially-paid' | 'overdue' | 'paid'
+
 export type CommitmentStatus = 'paid' | 'overdue'
+
+export type PlanningCommitmentStatus =
+  | 'upcoming'
+  | 'due-soon'
+  | 'paid'
+  | 'overdue'
 
 export type FinancialPosition = 'Comfortable' | 'Tight'
 
@@ -76,15 +90,52 @@ export interface Commitment {
   status: CommitmentStatus
 }
 
+export interface PlanningReceivable {
+  id: string
+  counterparty: string
+  originalAmount: number
+  receivedAmount: number
+  dueDate: string
+  status: ReceivableStatus
+  note?: string
+}
+
+export interface PlanningPayable {
+  id: string
+  counterparty: string
+  originalAmount: number
+  paidAmount: number
+  dueDate: string
+  status: PayableStatus
+  note?: string
+}
+
+export type CommitmentFrequency = 'monthly' | 'weekly' | 'yearly'
+
+export interface PlanningCommitment {
+  id: string
+  label: string
+  category: TransactionCategory
+  amount: number
+  frequency: CommitmentFrequency
+  dueDate: string
+  status: PlanningCommitmentStatus
+  accountId?: AccountId
+}
+
 export interface PersonalFinanceData {
   reportingMonth: string
   activityReferenceDate: string
+  planningReferenceDate: string
   profile: FinanceProfile
   accounts: readonly Account[]
   transactions: readonly FinanceTransaction[]
   receivables: readonly OutstandingItem[]
   payables: readonly OutstandingItem[]
   commitments: readonly Commitment[]
+  planningReceivables: readonly PlanningReceivable[]
+  planningPayables: readonly PlanningPayable[]
+  planningCommitments: readonly PlanningCommitment[]
   liquidityReserve: number
   previousMonthIncome: number
 }
