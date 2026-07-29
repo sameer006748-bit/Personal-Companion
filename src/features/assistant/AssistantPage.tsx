@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 
 import {
@@ -9,7 +9,7 @@ import {
 } from './AssistantComponents'
 import { generateAssistantResponse } from '../../lib/assistantEngine'
 import type { AssistantMessage } from '../../models/assistant'
-import { personalFinanceData } from '../../mocks/finance'
+import { getActivePersonalFinanceData } from '../../mocks/finance'
 import { useAppStore } from '../../store/appStore'
 
 function getGreeting(): string {
@@ -38,8 +38,10 @@ export function AssistantPage() {
   ])
   const messageCount = useRef(0)
   const conversationEndRef = useRef<HTMLDivElement>(null)
+  const settings = useAppStore((state) => state.settings)
   const privacyMode = useAppStore((state) => state.privacyMode)
   const togglePrivacyMode = useAppStore((state) => state.togglePrivacyMode)
+  const data = useMemo(() => getActivePersonalFinanceData(settings), [settings])
 
   useEffect(() => {
     conversationEndRef.current?.scrollIntoView({
@@ -58,7 +60,7 @@ export function AssistantPage() {
     }
 
     const timestamp = Date.now()
-    const response = generateAssistantResponse(trimmedQuestion, personalFinanceData)
+    const response = generateAssistantResponse(trimmedQuestion, data)
     messageCount.current += 1
 
     setMessages((currentMessages) => [
@@ -101,7 +103,7 @@ export function AssistantPage() {
         </button>
       </header>
 
-      <AssistantIntro greeting={getGreeting()} name={personalFinanceData.profile.name} />
+      <AssistantIntro greeting={getGreeting()} name={data.profile.name} />
       <AssistantSuggestions onSelect={submitQuestion} />
       <AssistantMessageList
         messages={messages}

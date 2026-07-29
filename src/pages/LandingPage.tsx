@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { Eye, EyeOff, Moon, Sun } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router'
 
 import {
@@ -13,10 +13,8 @@ import {
   RecentActivity,
 } from '../features/home/HomeSections'
 import { getHomeSummary } from '../lib/financeSelectors'
-import { personalFinanceData } from '../mocks/finance'
+import { getActivePersonalFinanceData } from '../mocks/finance'
 import { useAppStore } from '../store/appStore'
-
-const homeSummary = getHomeSummary(personalFinanceData)
 
 interface HeaderControlProps {
   label: string
@@ -59,11 +57,14 @@ function getGreeting(): string {
 }
 
 export function HomePage() {
+  const settings = useAppStore((state) => state.settings)
   const privacyMode = useAppStore((state) => state.privacyMode)
   const theme = useAppStore((state) => state.theme)
   const togglePrivacyMode = useAppStore((state) => state.togglePrivacyMode)
   const toggleTheme = useAppStore((state) => state.toggleTheme)
   const dateLabel = format(new Date(), 'EEEE, d MMMM')
+  const data = useMemo(() => getActivePersonalFinanceData(settings), [settings])
+  const homeSummary = useMemo(() => getHomeSummary(data), [data])
 
   return (
     <div className="home-screen">
@@ -71,7 +72,7 @@ export function HomePage() {
         <div className="home-greeting">
           <p>{dateLabel}</p>
           <h1>
-            {getGreeting()}, {personalFinanceData.profile.name}
+            {getGreeting()}, {data.profile.name}
           </h1>
         </div>
         <div className="home-header-actions">
@@ -99,22 +100,22 @@ export function HomePage() {
           <Link
             to="/profile"
             className="glass-control profile-control"
-            aria-label={`Open ${personalFinanceData.profile.name}'s profile`}
+            aria-label={`Open ${data.profile.name}'s profile`}
           >
-            {personalFinanceData.profile.initials}
+            {data.profile.initials}
           </Link>
         </div>
       </header>
 
-      <AvailableBalanceHero data={personalFinanceData} summary={homeSummary} />
+      <AvailableBalanceHero data={data} summary={homeSummary} />
       <MonthlyFlow summary={homeSummary} />
       <AssistantEntry />
 
       <div className="home-secondary-content">
         <OutstandingPosition summary={homeSummary} />
-        <NextCommitment data={personalFinanceData} />
-        <FinancialInsight data={personalFinanceData} />
-        <RecentActivity data={personalFinanceData} />
+        <NextCommitment data={data} />
+        <FinancialInsight data={data} />
+        <RecentActivity data={data} />
       </div>
     </div>
   )

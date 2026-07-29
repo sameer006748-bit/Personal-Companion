@@ -4,10 +4,12 @@ import {
   ChevronRight,
   Moon,
   Pencil,
+  RotateCcw,
   Sun,
   Trash2,
   type LucideIcon,
 } from 'lucide-react'
+import { useNavigate } from 'react-router'
 
 import type { AccountId } from '../../models/finance'
 import {
@@ -58,6 +60,7 @@ function deriveInitials(name: string): string {
 }
 
 export function ProfilePage() {
+  const navigate = useNavigate()
   const settings = useAppStore((state) => state.settings)
   const privacyMode = useAppStore((state) => state.privacyMode)
   const togglePrivacyMode = useAppStore((state) => state.togglePrivacyMode)
@@ -70,6 +73,7 @@ export function ProfilePage() {
   const setAssistantResponseStyle = useAppStore((state) => state.setAssistantResponseStyle)
   const setAssistantCalculations = useAppStore((state) => state.setAssistantCalculations)
   const setAssistantSuggestions = useAppStore((state) => state.setAssistantSuggestions)
+  const restartOnboarding = useAppStore((state) => state.restartOnboarding)
 
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState(settings.profile.fullName)
@@ -242,6 +246,12 @@ export function ProfilePage() {
         <SettingRow label="App lock" status="Not configured" />
         <SettingRow label="Data backup" status="Local only" />
         <SettingRow label="Export personal data" status="Coming later" />
+        <RestartOnboardingRow
+          onRestart={() => {
+            restartOnboarding()
+            void navigate('/onboarding')
+          }}
+        />
         <ClearConversationRow showSaved={showSaved} />
       </SettingsSection>
 
@@ -325,6 +335,41 @@ function ThemeSelector({ current, onChange }: { current: ThemePreference; onChan
           )
         })}
       </div>
+    </div>
+  )
+}
+
+function RestartOnboardingRow({ onRestart }: { onRestart: () => void }) {
+  const [confirming, setConfirming] = useState(false)
+
+  if (confirming) {
+    return (
+      <div className="profile-setting-row clear-row">
+        <span className="profile-setting-label">
+          Restart onboarding
+          <span className="profile-setting-desc">Your current values will stay available to review.</span>
+        </span>
+        <div className="profile-clear-actions">
+          <button type="button" className="glass-control profile-restart-confirm" onClick={onRestart}>
+            <RotateCcw aria-hidden="true" />
+            Continue
+          </button>
+          <button type="button" className="glass-control profile-clear-cancel" onClick={() => setConfirming(false)}>Cancel</button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="profile-setting-row">
+      <span className="profile-setting-label">
+        Restart onboarding
+        <span className="profile-setting-desc">Review and update your initial setup.</span>
+      </span>
+      <button type="button" className="glass-control profile-action-button" onClick={() => setConfirming(true)}>
+        <RotateCcw aria-hidden="true" />
+        Restart
+      </button>
     </div>
   )
 }

@@ -5,11 +5,12 @@ import { AssistantPage } from '../features/assistant/AssistantPage'
 import { PlanningPage } from '../features/planning/PlanningPage'
 import { ProfilePage } from '../features/profile/ProfilePage'
 import { HomePage } from '../pages/LandingPage'
-import { AppShell } from './AppShell'
+import { OnboardingRoute, ProtectedAppShell } from './OnboardingRoutes'
 
 export const appRouter = createBrowserRouter([
+  { path: '/onboarding', element: <OnboardingRoute /> },
   {
-    element: <AppShell />,
+    element: <ProtectedAppShell />,
     children: [
       { path: '/', element: <HomePage /> },
       { path: '/activity', element: <ActivityPage /> },

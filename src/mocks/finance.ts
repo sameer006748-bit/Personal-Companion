@@ -1,4 +1,5 @@
 import type { PersonalFinanceData } from '../models/finance'
+import type { UserSettings } from '../models/settings'
 
 export const personalFinanceData: PersonalFinanceData = {
   reportingMonth: '2026-07',
@@ -521,4 +522,27 @@ export const personalFinanceData: PersonalFinanceData = {
   ],
   liquidityReserve: 24500,
   previousMonthIncome: 125000,
+}
+
+export function getActivePersonalFinanceData(
+  settings: UserSettings,
+): PersonalFinanceData {
+  return {
+    ...personalFinanceData,
+    profile: {
+      name: settings.profile.fullName,
+      initials: settings.profile.initials,
+      incomeType:
+        settings.profile.incomeType === 'variable'
+          ? 'Variable income'
+          : settings.profile.incomeType === 'fixed'
+            ? 'Fixed income'
+            : 'Mixed income',
+    },
+    accounts: personalFinanceData.accounts.map((account) => ({
+      ...account,
+      balance: settings.finance.accountBalances[account.id],
+      isDefault: account.id === settings.profile.defaultAccountId,
+    })),
+  }
 }

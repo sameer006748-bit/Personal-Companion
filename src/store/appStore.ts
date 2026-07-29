@@ -3,9 +3,12 @@ import { create } from 'zustand'
 import { CURRENCY_CODE, type CurrencyCode } from '../models/currency'
 import type { AccountId } from '../models/finance'
 import {
+  createOnboardingDraft,
   type AssistantResponseStyle,
   type FinancialPositionStyle,
   type IncomeType,
+  type OnboardingDraft,
+  type OnboardingStep,
   type ThemePreference,
   type UserSettings,
   loadSettings,
@@ -30,6 +33,11 @@ interface AppState {
   setAssistantResponseStyle: (style: AssistantResponseStyle) => void
   setAssistantCalculations: (include: boolean) => void
   setAssistantSuggestions: (show: boolean) => void
+  previewOnboardingDraft: (draft: OnboardingDraft) => void
+  updateOnboardingDraft: (draft: OnboardingDraft, currentStep?: OnboardingStep) => void
+  setOnboardingStep: (step: OnboardingStep) => void
+  completeOnboarding: () => void
+  restartOnboarding: () => void
 }
 
 function resolveTheme(preference: ThemePreference): Theme {
@@ -51,7 +59,7 @@ function applyTheme(theme: Theme): void {
   document.documentElement.style.colorScheme = theme
 }
 
-function persistAndApply(settings: UserSettings): void {
+function persist(settings: UserSettings): void {
   saveSettings(settings)
 }
 
@@ -60,13 +68,17 @@ const initialTheme = resolveTheme(initialSettings.appearance.themePreference)
 
 export const useAppStore = create<AppState>((set, get) => ({
   currency: CURRENCY_CODE,
-  privacyMode: initialSettings.privacy.hideAmounts,
+  privacyMode:
+    initialSettings.privacy.hideAmounts || initialSettings.privacy.hideBalancesOnLaunch,
   theme: initialTheme,
   settings: initialSettings,
   togglePrivacyMode: () => {
     const next = !get().privacyMode
-    const updated = { ...get().settings, privacy: { ...get().settings.privacy, hideAmounts: next } }
-    persistAndApply(updated)
+    const updated = {
+      ...get().settings,
+      privacy: { ...get().settings.privacy, hideAmounts: next },
+    }
+    persist(updated)
     set({ privacyMode: next, settings: updated })
   },
   toggleTheme: () => {
@@ -77,82 +89,163 @@ export const useAppStore = create<AppState>((set, get) => ({
       ...get().settings,
       appearance: { ...get().settings.appearance, themePreference: next },
     }
-    persistAndApply(updated)
+    persist(updated)
     applyTheme(resolved)
     set({ theme: resolved, settings: updated })
   },
-  setThemePreference: (preference: ThemePreference) => {
+  setThemePreference: (preference) => {
     const resolved = resolveTheme(preference)
     const updated = {
       ...get().settings,
       appearance: { ...get().settings.appearance, themePreference: preference },
     }
-    persistAndApply(updated)
+    persist(updated)
     applyTheme(resolved)
     set({ theme: resolved, settings: updated })
   },
-  updateProfile: (fullName: string, initials: string, incomeType: IncomeType, defaultAccountId: AccountId) => {
+  updateProfile: (fullName, initials, incomeType, defaultAccountId) => {
     const updated = {
       ...get().settings,
       profile: { fullName, initials, incomeType, defaultAccountId },
     }
-    persistAndApply(updated)
+    persist(updated)
     set({ settings: updated })
   },
-  setIncomeType: (incomeType: IncomeType) => {
+  setIncomeType: (incomeType) => {
     const updated = {
       ...get().settings,
       profile: { ...get().settings.profile, incomeType },
     }
-    persistAndApply(updated)
+    persist(updated)
     set({ settings: updated })
   },
-  setDefaultAccount: (accountId: AccountId) => {
+  setDefaultAccount: (accountId) => {
     const updated = {
       ...get().settings,
       profile: { ...get().settings.profile, defaultAccountId: accountId },
     }
-    persistAndApply(updated)
+    persist(updated)
     set({ settings: updated })
   },
-  setFinancialPositionStyle: (style: FinancialPositionStyle) => {
+  setFinancialPositionStyle: (style) => {
     const updated = {
       ...get().settings,
       finance: { ...get().settings.finance, financialPositionStyle: style },
     }
-    persistAndApply(updated)
+    persist(updated)
     set({ settings: updated })
   },
-  setHideBalancesOnLaunch: (hide: boolean) => {
+  setHideBalancesOnLaunch: (hide) => {
     const updated = {
       ...get().settings,
       privacy: { ...get().settings.privacy, hideBalancesOnLaunch: hide },
     }
-    persistAndApply(updated)
+    persist(updated)
     set({ settings: updated })
   },
-  setAssistantResponseStyle: (style: AssistantResponseStyle) => {
+  setAssistantResponseStyle: (style) => {
     const updated = {
       ...get().settings,
       assistant: { ...get().settings.assistant, responseStyle: style },
     }
-    persistAndApply(updated)
+    persist(updated)
     set({ settings: updated })
   },
-  setAssistantCalculations: (include: boolean) => {
+  setAssistantCalculations: (include) => {
     const updated = {
       ...get().settings,
       assistant: { ...get().settings.assistant, includeCalculations: include },
     }
-    persistAndApply(updated)
+    persist(updated)
     set({ settings: updated })
   },
-  setAssistantSuggestions: (show: boolean) => {
+  setAssistantSuggestions: (show) => {
     const updated = {
       ...get().settings,
       assistant: { ...get().settings.assistant, showSuggestions: show },
     }
-    persistAndApply(updated)
+    persist(updated)
+    set({ settings: updated })
+  },
+  previewOnboardingDraft: (draft) => {
+    const resolved = resolveTheme(draft.themePreference)
+    applyTheme(resolved)
+    set({ theme: resolved, privacyMode: draft.hideAmounts })
+  },
+  updateOnboardingDraft: (draft, currentStep) => {
+    const resolved = resolveTheme(draft.themePreference)
+    const updated = {
+      ...get().settings,
+      onboarding: {
+        version: 1,
+        status: 'in-progress' as const,
+        currentStep: currentStep ?? get().settings.onboarding.currentStep,
+        draft,
+      },
+    }
+    persist(updated)
+    applyTheme(resolved)
+    set({ theme: resolved, privacyMode: draft.hideAmounts, settings: updated })
+  },
+  setOnboardingStep: (step) => {
+    const currentSettings = get().settings
+    const draft = currentSettings.onboarding.draft ?? createOnboardingDraft(currentSettings)
+    const updated = {
+      ...currentSettings,
+      onboarding: {
+        version: 1,
+        status: 'in-progress' as const,
+        currentStep: step,
+        draft,
+      },
+    }
+    persist(updated)
+    set({ settings: updated })
+  },
+  completeOnboarding: () => {
+    const currentSettings = get().settings
+    const draft = currentSettings.onboarding.draft ?? createOnboardingDraft(currentSettings)
+    const resolved = resolveTheme(draft.themePreference)
+    const updated = {
+      ...currentSettings,
+      profile: {
+        fullName: draft.fullName.trim(),
+        initials: draft.initials,
+        incomeType: draft.incomeType,
+        defaultAccountId: draft.defaultAccountId,
+      },
+      appearance: { themePreference: draft.themePreference },
+      privacy: {
+        hideAmounts: draft.hideAmounts,
+        hideBalancesOnLaunch: draft.hideBalancesOnLaunch,
+      },
+      finance: {
+        ...currentSettings.finance,
+        accountBalances: { ...draft.accountBalances },
+      },
+      onboarding: {
+        version: 1,
+        status: 'completed' as const,
+        currentStep: 5 as OnboardingStep,
+        completedAt: new Date().toISOString(),
+      },
+    }
+    persist(updated)
+    applyTheme(resolved)
+    set({ theme: resolved, privacyMode: draft.hideAmounts, settings: updated })
+  },
+  restartOnboarding: () => {
+    const currentSettings = get().settings
+    const updated = {
+      ...currentSettings,
+      onboarding: {
+        version: 1,
+        status: 'in-progress' as const,
+        currentStep: 5 as OnboardingStep,
+        draft: createOnboardingDraft(currentSettings),
+      },
+    }
+    persist(updated)
     set({ settings: updated })
   },
 }))
