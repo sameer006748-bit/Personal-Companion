@@ -1,78 +1,215 @@
-import { ArrowDown, CalendarDays, Sparkles } from 'lucide-react'
+import { format } from 'date-fns'
+import {
+  ArrowUpRight,
+  Eye,
+  EyeOff,
+  Moon,
+  ShieldCheck,
+  Sparkles,
+  Sun,
+  TrendingUp,
+} from 'lucide-react'
+import type { ReactNode } from 'react'
+import { Link } from 'react-router'
 
-import { BrandMark } from '../shared/ui/BrandMark'
+import { formatCurrency } from '../lib/formatCurrency'
+import { useAppStore } from '../store/appStore'
 
-export function LandingPage() {
+const ACCOUNTS = [
+  { label: 'Cash', amount: 42500, share: 17.22 },
+  { label: 'Meezan Bank', amount: 186300, share: 75.49 },
+  { label: 'JazzCash', amount: 18000, share: 7.29 },
+] as const
+
+interface PrivateAmountProps {
+  amount: number
+  className?: string
+}
+
+function PrivateAmount({ amount, className = '' }: PrivateAmountProps) {
+  const privacyMode = useAppStore((state) => state.privacyMode)
+  const formattedAmount = formatCurrency(amount)
+
   return (
-    <div className="min-h-screen overflow-hidden bg-canvas text-ink">
-      <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-7 sm:px-10 lg:px-12">
-        <a
-          className="inline-flex items-center gap-3 rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-          href="/"
-          aria-label="Personal Companion home"
-        >
-          <BrandMark />
-          <span className="text-sm font-semibold tracking-[-0.01em]">
-            Personal Companion
-          </span>
-        </a>
-        <span className="hidden text-xs font-medium uppercase tracking-[0.18em] text-muted sm:block">
-          Thoughtful everyday support
-        </span>
-      </header>
-
-      <main className="relative mx-auto flex min-h-[calc(100vh-104px)] w-full max-w-7xl items-center px-6 pb-14 pt-8 sm:px-10 lg:px-12">
-        <div
-          className="pointer-events-none absolute right-[-9rem] top-[4%] size-[28rem] rounded-full bg-accent/10 blur-3xl"
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute bottom-[-12rem] left-[18%] size-[26rem] rounded-full bg-highlight/60 blur-3xl"
-          aria-hidden="true"
-        />
-
-        <section className="relative grid w-full items-end gap-16 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-24">
-          <div className="max-w-3xl">
-            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-line bg-white/65 px-3.5 py-2 text-xs font-semibold text-muted shadow-soft backdrop-blur">
-              <Sparkles aria-hidden="true" className="size-3.5 text-accent" />
-              A clear place to begin
-            </div>
-
-            <h1 className="text-balance font-display text-[clamp(3.35rem,9vw,7.5rem)] leading-[0.88] tracking-[-0.065em]">
-              Make space for
-              <span className="block text-accent">what matters.</span>
-            </h1>
-
-            <p className="mt-8 max-w-xl text-pretty text-base leading-7 text-muted sm:text-lg sm:leading-8">
-              Personal Companion is being shaped as a calm, dependable home for
-              everyday planning, reflection, and support.
-            </p>
-          </div>
-
-          <aside className="relative overflow-hidden rounded-[2rem] border border-line bg-panel p-7 shadow-card sm:p-8">
-            <div
-              className="absolute right-0 top-0 size-32 translate-x-10 -translate-y-12 rounded-full bg-highlight"
-              aria-hidden="true"
-            />
-            <CalendarDays
-              aria-hidden="true"
-              className="relative size-7 text-accent"
-              strokeWidth={1.7}
-            />
-            <p className="relative mt-14 text-xs font-semibold uppercase tracking-[0.17em] text-muted">
-              Foundation
-            </p>
-            <p className="relative mt-3 font-display text-3xl leading-tight tracking-[-0.035em]">
-              A focused start, ready to grow with purpose.
-            </p>
-            <div className="relative mt-8 flex items-center gap-3 border-t border-line pt-5 text-sm font-medium text-muted">
-              <ArrowDown aria-hidden="true" className="size-4 text-accent" />
-              Initial experience in progress
-            </div>
-          </aside>
-        </section>
-      </main>
-    </div>
+    <span
+      className={['private-amount', className].join(' ')}
+      data-private={privacyMode}
+      aria-label={privacyMode ? 'Amount hidden' : formattedAmount}
+    >
+      {privacyMode
+        ? 'PKR \u2022\u2022\u2022\u2022\u2022\u2022'
+        : formattedAmount}
+    </span>
   )
 }
 
+interface HeaderControlProps {
+  label: string
+  onClick: () => void
+  pressed?: boolean
+  children: ReactNode
+}
+
+function HeaderControl({
+  label,
+  onClick,
+  pressed,
+  children,
+}: HeaderControlProps) {
+  return (
+    <button
+      type="button"
+      className="glass-control header-control"
+      aria-label={label}
+      aria-pressed={pressed}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  )
+}
+
+export function HomePage() {
+  const privacyMode = useAppStore((state) => state.privacyMode)
+  const theme = useAppStore((state) => state.theme)
+  const togglePrivacyMode = useAppStore((state) => state.togglePrivacyMode)
+  const toggleTheme = useAppStore((state) => state.toggleTheme)
+  const dateLabel = format(new Date(), 'EEEE, d MMMM')
+
+  return (
+    <div className="home-screen">
+      <header className="home-header">
+        <div className="home-greeting">
+          <p>{dateLabel}</p>
+          <h1>Good afternoon, Sameer</h1>
+        </div>
+        <div className="home-header-actions">
+          <HeaderControl
+            label={privacyMode ? 'Show amounts' : 'Hide amounts'}
+            pressed={privacyMode}
+            onClick={togglePrivacyMode}
+          >
+            {privacyMode ? (
+              <EyeOff aria-hidden="true" />
+            ) : (
+              <Eye aria-hidden="true" />
+            )}
+          </HeaderControl>
+          <HeaderControl
+            label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+            onClick={toggleTheme}
+          >
+            {theme === 'dark' ? (
+              <Sun aria-hidden="true" />
+            ) : (
+              <Moon aria-hidden="true" />
+            )}
+          </HeaderControl>
+          <Link
+            to="/profile"
+            className="glass-control profile-control"
+            aria-label="Open Sameer's profile"
+          >
+            SK
+          </Link>
+        </div>
+      </header>
+
+      <section
+        aria-labelledby="available-balance-title"
+        className="balance-hero glass-hero"
+      >
+        <div aria-hidden="true" className="hero-reflection" />
+        <div className="balance-heading">
+          <div>
+            <p id="available-balance-title" className="eyebrow">
+              Available Balance
+            </p>
+            <PrivateAmount amount={246800} className="balance-total" />
+          </div>
+          <span className="balance-status">
+            <ShieldCheck aria-hidden="true" />
+            Comfortable
+          </span>
+        </div>
+
+        <div className="account-distribution" aria-label="Account distribution">
+          <div className="distribution-track" aria-hidden="true">
+            {ACCOUNTS.map((account) => (
+              <span
+                key={account.label}
+                style={{ flexBasis: `${account.share}%` }}
+              />
+            ))}
+          </div>
+          <dl className="account-list">
+            {ACCOUNTS.map((account) => (
+              <div key={account.label}>
+                <dt>{account.label}</dt>
+                <dd>
+                  <PrivateAmount amount={account.amount} />
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <div className="financial-position">
+          <div>
+            <p>Safe to Spend</p>
+            <PrivateAmount amount={211200} />
+          </div>
+          <p>Upcoming commitments remain fully covered.</p>
+        </div>
+      </section>
+
+      <section className="monthly-flow glass-surface" aria-labelledby="flow-title">
+        <div className="flow-heading">
+          <div>
+            <p className="eyebrow">This month</p>
+            <h2 id="flow-title">Monthly Flow</h2>
+          </div>
+          <TrendingUp aria-hidden="true" />
+        </div>
+        <dl className="flow-values">
+          <div>
+            <dt>Money In</dt>
+            <dd>
+              <PrivateAmount amount={165000} />
+            </dd>
+          </div>
+          <div>
+            <dt>Money Out</dt>
+            <dd>
+              <PrivateAmount amount={80300} />
+            </dd>
+          </div>
+          <div>
+            <dt>Net Position</dt>
+            <dd>
+              <PrivateAmount amount={84700} />
+            </dd>
+          </div>
+        </dl>
+        <div className="insight-line">
+          <Sparkles aria-hidden="true" />
+          <p>
+            Income is 32% higher than last month, while essential commitments
+            remain covered.
+          </p>
+        </div>
+      </section>
+
+      <Link to="/assistant" className="assistant-entry glass-elevated">
+        <span className="assistant-icon">
+          <Sparkles aria-hidden="true" />
+        </span>
+        <span>
+          <small>Personal Assistant</small>
+          Tell me what happened with your money
+        </span>
+        <ArrowUpRight aria-hidden="true" />
+      </Link>
+    </div>
+  )
+}
