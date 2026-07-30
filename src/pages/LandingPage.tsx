@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
-import { Eye, EyeOff, Moon, Sun } from 'lucide-react'
-import { useMemo, type ReactNode } from 'react'
+import { Eye, EyeOff, Moon, Plus, Sun } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 
 import {
@@ -12,8 +12,9 @@ import {
   OutstandingPosition,
   RecentActivity,
 } from '../features/home/HomeSections'
+import { TransactionDialog } from '../features/finance/TransactionDialog'
 import { getHomeSummary } from '../lib/financeSelectors'
-import { getActivePersonalFinanceData } from '../mocks/finance'
+import { getLocalPersonalFinanceData } from '../mocks/finance'
 import { useAppStore } from '../store/appStore'
 
 interface HeaderControlProps {
@@ -57,13 +58,15 @@ function getGreeting(): string {
 }
 
 export function HomePage() {
+  const [addingTransaction, setAddingTransaction] = useState(false)
   const settings = useAppStore((state) => state.settings)
+  const finance = useAppStore((state) => state.finance)
   const privacyMode = useAppStore((state) => state.privacyMode)
   const theme = useAppStore((state) => state.theme)
   const togglePrivacyMode = useAppStore((state) => state.togglePrivacyMode)
   const toggleTheme = useAppStore((state) => state.toggleTheme)
   const dateLabel = format(new Date(), 'EEEE, d MMMM')
-  const data = useMemo(() => getActivePersonalFinanceData(settings), [settings])
+  const data = useMemo(() => getLocalPersonalFinanceData(settings, finance), [settings, finance])
   const homeSummary = useMemo(() => getHomeSummary(data), [data])
 
   return (
@@ -76,6 +79,7 @@ export function HomePage() {
           </h1>
         </div>
         <div className="home-header-actions">
+          <button type="button" className="glass-control header-control" aria-label="Add transaction" onClick={() => setAddingTransaction(true)}><Plus aria-hidden="true" /></button>
           <HeaderControl
             label={privacyMode ? 'Show amounts' : 'Hide amounts'}
             pressed={privacyMode}
@@ -117,6 +121,7 @@ export function HomePage() {
         <FinancialInsight data={data} />
         <RecentActivity data={data} />
       </div>
+      {addingTransaction ? <TransactionDialog onClose={() => setAddingTransaction(false)} /> : null}
     </div>
   )
 }

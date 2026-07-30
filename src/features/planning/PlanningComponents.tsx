@@ -26,7 +26,7 @@ import { getPlanningStatusLabel } from '../../lib/financeSelectors'
 import type { TransactionCategory } from '../../models/finance'
 import { PrivateAmount } from '../../shared/ui/PrivateAmount'
 
-const categoryIcons: Record<TransactionCategory, LucideIcon> = {
+const categoryIcons: Partial<Record<TransactionCategory, LucideIcon>> = {
   'client-payment': TrendingUp,
   consultation: CircleDollarSign,
   housing: House,
@@ -42,6 +42,10 @@ const categoryIcons: Record<TransactionCategory, LucideIcon> = {
   entertainment: ReceiptText,
   loan: CircleDollarSign,
   transfer: Repeat,
+}
+
+function getCategoryIcon(category: TransactionCategory): LucideIcon {
+  return categoryIcons[category] ?? ReceiptText
 }
 
 const attentionTypeIcons: Record<PlanningItemType, LucideIcon> = {
@@ -316,7 +320,7 @@ export function PlanningCommitmentsSection({
       </div>
       <ul className="planning-list">
         {commitments.map((item) => {
-          const Icon = categoryIcons[item.category]
+          const Icon = getCategoryIcon(item.category)
 
           return (
             <li key={item.id} className="planning-row commitment-row">

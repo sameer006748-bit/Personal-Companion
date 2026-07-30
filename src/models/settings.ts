@@ -1,4 +1,4 @@
-import type { AccountId } from './finance'
+import type { AccountId, AccountType } from './finance'
 
 export type ThemePreference = 'system' | 'light' | 'dark'
 
@@ -54,6 +54,16 @@ export interface OnboardingDraft {
   themePreference: ThemePreference
   hideAmounts: boolean
   hideBalancesOnLaunch: boolean
+  accounts?: readonly OnboardingAccountDraft[]
+}
+
+export interface OnboardingAccountDraft {
+  id: AccountId
+  name: string
+  type: AccountType
+  openingBalance: number
+  isDefault: boolean
+  existingAccountId?: AccountId
 }
 
 export interface OnboardingSettings {
@@ -88,29 +98,60 @@ const CURRENT_VERSION = 2
 const ONBOARDING_VERSION = 1
 
 const defaultAccountBalances: AccountBalances = {
-  cash: 42500,
-  'meezan-bank': 186300,
-  jazzcash: 18000,
+  cash: 0,
 }
 
 function cloneBalances(balances: AccountBalances): AccountBalances {
   return { ...balances }
 }
 
-export function createOnboardingDraft(settings: Pick<
-  UserSettings,
-  'profile' | 'appearance' | 'privacy' | 'finance'
->): OnboardingDraft {
+export interface OnboardingDraftSource {
+  profile: UserSettings['profile']
+  appearance: UserSettings['appearance']
+  privacy: UserSettings['privacy']
+  finance: UserSettings['finance']
+  accounts?: readonly {
+    id: AccountId
+    name: string
+    type: AccountType
+    openingBalance: number
+    isDefault: boolean
+    isArchived: boolean
+  }[]
+}
+
+export function createOnboardingDraft(settings: OnboardingDraftSource): OnboardingDraft {
+  const activeAccounts = settings.accounts?.filter((account) => !account.isArchived) ?? []
+const accountDrafts: readonly OnboardingAccountDraft[] = activeAccounts.length > 0
+  ? activeAccounts.map((account) => ({
+      id: account.id,
+      name: account.name,
+      type: account.type,
+      openingBalance: account.openingBalance,
+      isDefault: account.isDefault,
+      existingAccountId: account.id,
+    }))
+  : [{
+      id: 'cash',
+      name: 'Cash',
+      type: 'cash',
+      openingBalance: 0,
+      isDefault: true,
+    }]
+
+  const defaultAccountId = accountDrafts.find((account) => account.isDefault)?.id ?? accountDrafts[0]?.id ?? settings.profile.defaultAccountId
+
   return {
     fullName: settings.profile.fullName,
     initials: settings.profile.initials,
     initialsManuallyEdited: false,
     incomeType: settings.profile.incomeType,
-    defaultAccountId: settings.profile.defaultAccountId,
-    accountBalances: cloneBalances(settings.finance.accountBalances),
+    defaultAccountId,
+    accountBalances: Object.fromEntries(accountDrafts.map((account) => [account.id, account.openingBalance])),
     themePreference: settings.appearance.themePreference,
     hideAmounts: settings.privacy.hideAmounts,
     hideBalancesOnLaunch: settings.privacy.hideBalancesOnLaunch,
+    accounts: accountDrafts,
   }
 }
 
@@ -120,7 +161,7 @@ const defaultSettings: UserSettings = {
     fullName: 'Sameer',
     initials: 'SK',
     incomeType: 'variable',
-    defaultAccountId: 'meezan-bank',
+    defaultAccountId: 'cash',
   },
   appearance: {
     themePreference: 'system',
@@ -153,7 +194,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 function isAccountId(value: unknown): value is AccountId {
-  return value === 'cash' || value === 'meezan-bank' || value === 'jazzcash'
+  return typeof value === 'string' && value.trim().length > 0
 }
 
 function isIncomeType(value: unknown): value is IncomeType {
@@ -169,8 +210,13 @@ function isBalances(value: unknown): value is AccountBalances {
     return false
   }
 
-  return ['cash', 'meezan-bank', 'jazzcash'].every((accountId) => {
-    const balance = value[accountId]
+  const entries = Object.entries(value)
+
+  if (entries.length === 0) {
+    return false
+  }
+
+  return entries.every(([, balance]) => {
     return typeof balance === 'number' && Number.isInteger(balance) && balance >= 0
   })
 }
@@ -252,12 +298,17 @@ function isLegacySettings(value: unknown): value is LegacyUserSettings {
 }
 
 function migrateLegacySettings(settings: LegacyUserSettings): UserSettings {
+  const legacyFinance: unknown = settings.finance
+  const legacyBalances = isObject(legacyFinance) && isBalances(legacyFinance.accountBalances)
+    ? legacyFinance.accountBalances
+    : defaultAccountBalances
+
   return {
     ...settings,
     version: CURRENT_VERSION,
     finance: {
       ...settings.finance,
-      accountBalances: cloneBalances(defaultAccountBalances),
+      accountBalances: cloneBalances(legacyBalances),
     },
     onboarding: {
       version: ONBOARDING_VERSION,
@@ -293,34 +344,45 @@ function cloneSettings(settings: UserSettings): UserSettings {
   }
 }
 
-export function loadSettings(): UserSettings {
+export type SettingsOrigin = 'fresh' | 'existing' | 'legacy'
+
+export interface LoadedSettings {
+  settings: UserSettings
+  origin: SettingsOrigin
+}
+
+export function loadSettingsWithOrigin(): LoadedSettings {
   if (typeof window === 'undefined') {
-    return cloneSettings(defaultSettings)
+    return { settings: cloneSettings(defaultSettings), origin: 'fresh' }
   }
 
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
 
     if (!raw) {
-      return cloneSettings(defaultSettings)
+      return { settings: cloneSettings(defaultSettings), origin: 'fresh' }
     }
 
     const parsed: unknown = JSON.parse(raw)
 
     if (isValidSettings(parsed)) {
-      return cloneSettings(parsed)
+      return { settings: cloneSettings(parsed), origin: 'existing' }
     }
 
     if (isLegacySettings(parsed)) {
       const migrated = migrateLegacySettings(parsed)
       saveSettings(migrated)
-      return migrated
+      return { settings: migrated, origin: 'legacy' }
     }
   } catch {
     // Storage is unavailable or the saved value is invalid; use safe defaults.
   }
 
-  return cloneSettings(defaultSettings)
+  return { settings: cloneSettings(defaultSettings), origin: 'fresh' }
+}
+
+export function loadSettings(): UserSettings {
+  return loadSettingsWithOrigin().settings
 }
 
 export function saveSettings(settings: UserSettings): void {

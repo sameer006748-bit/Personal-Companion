@@ -18,6 +18,7 @@ import { Link } from 'react-router'
 import {
   getAccountShare,
   getFinancialInsight,
+  getMonthlyTransactions,
   getNextCommitment,
   getRecentTransactions,
 } from '../../lib/financeSelectors'
@@ -81,7 +82,11 @@ export function AvailableBalanceHero({ data, summary }: DataSectionProps) {
           <p>Safe to Spend</p>
           <PrivateAmount amount={summary.safeToSpend} />
         </div>
-        <p>Upcoming commitments remain fully covered.</p>
+        <p>
+          {summary.remainingCommitments > 0
+            ? 'Upcoming commitments remain fully covered.'
+            : 'No upcoming commitments recorded.'}
+        </p>
       </div>
     </section>
   )
@@ -205,19 +210,21 @@ export function NextCommitment({ data }: Pick<DataSectionProps, 'data'>) {
 }
 
 export function FinancialInsight({ data }: Pick<DataSectionProps, 'data'>) {
+  const hasActivity = getMonthlyTransactions(data).length > 0
+
   return (
     <section className="financial-insight glass-surface" aria-labelledby="insight-title">
       <Sparkles aria-hidden="true" />
       <div>
         <p className="eyebrow">Financial insight</p>
-        <h2 id="insight-title">A clear month so far</h2>
+        <h2 id="insight-title">{hasActivity ? 'A clear month so far' : 'Nothing recorded yet'}</h2>
         <p>{getFinancialInsight(data)}</p>
       </div>
     </section>
   )
 }
 
-const categoryIcons: Record<TransactionCategory, LucideIcon> = {
+const categoryIcons: Partial<Record<TransactionCategory, LucideIcon>> = {
   'client-payment': TrendingUp,
   consultation: CircleDollarSign,
   housing: House,
@@ -235,6 +242,10 @@ const categoryIcons: Record<TransactionCategory, LucideIcon> = {
   transfer: ArrowUpRight,
 }
 
+function getCategoryIcon(category: TransactionCategory): LucideIcon {
+  return categoryIcons[category] ?? ReceiptText
+}
+
 export function RecentActivity({ data }: Pick<DataSectionProps, 'data'>) {
   const accounts = new Map(data.accounts.map((account) => [account.id, account]))
   const transactions = getRecentTransactions(data)
@@ -247,9 +258,12 @@ export function RecentActivity({ data }: Pick<DataSectionProps, 'data'>) {
           <h2 id="activity-title">Recent Activity</h2>
         </div>
       </div>
+      {transactions.length === 0 ? (
+        <p className="empty-state-note">No transactions recorded yet.</p>
+      ) : (
       <ul className="activity-list">
         {transactions.map((transaction) => {
-          const Icon = categoryIcons[transaction.category]
+          const Icon = getCategoryIcon(transaction.category)
           const account = accounts.get(transaction.accountId)
           const isIncome = transaction.direction === 'income'
 
@@ -285,6 +299,7 @@ export function RecentActivity({ data }: Pick<DataSectionProps, 'data'>) {
           )
         })}
       </ul>
+      )}
     </section>
   )
 }

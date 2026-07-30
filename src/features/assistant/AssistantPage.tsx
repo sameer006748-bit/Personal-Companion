@@ -9,7 +9,7 @@ import {
 } from './AssistantComponents'
 import { generateAssistantResponse } from '../../lib/assistantEngine'
 import type { AssistantMessage } from '../../models/assistant'
-import { getActivePersonalFinanceData } from '../../mocks/finance'
+import { getLocalPersonalFinanceData } from '../../mocks/finance'
 import { useAppStore } from '../../store/appStore'
 
 function getGreeting(): string {
@@ -39,9 +39,10 @@ export function AssistantPage() {
   const messageCount = useRef(0)
   const conversationEndRef = useRef<HTMLDivElement>(null)
   const settings = useAppStore((state) => state.settings)
+  const finance = useAppStore((state) => state.finance)
   const privacyMode = useAppStore((state) => state.privacyMode)
   const togglePrivacyMode = useAppStore((state) => state.togglePrivacyMode)
-  const data = useMemo(() => getActivePersonalFinanceData(settings), [settings])
+  const data = useMemo(() => getLocalPersonalFinanceData(settings, finance), [settings, finance])
 
   useEffect(() => {
     conversationEndRef.current?.scrollIntoView({

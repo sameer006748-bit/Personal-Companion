@@ -21,6 +21,7 @@ import type {
 } from '../../lib/financeSelectors'
 import type {
   AccountId,
+  FinanceTransaction,
   TransactionCategory,
   TransactionDirection,
   TransactionStatus,
@@ -66,7 +67,7 @@ export function ActivitySummaryCards({ summary }: ActivitySummaryCardsProps) {
   )
 }
 
-const categoryIcons: Record<TransactionCategory, LucideIcon> = {
+const categoryIcons: Partial<Record<TransactionCategory, LucideIcon>> = {
   'client-payment': TrendingUp,
   consultation: CircleDollarSign,
   housing: House,
@@ -82,6 +83,10 @@ const categoryIcons: Record<TransactionCategory, LucideIcon> = {
   entertainment: ReceiptText,
   loan: CircleDollarSign,
   transfer: ArrowLeftRight,
+}
+
+function getCategoryIcon(category: TransactionCategory): LucideIcon {
+  return categoryIcons[category] ?? ReceiptText
 }
 
 const directionLabels: Record<TransactionDirection, string> = {
@@ -115,9 +120,10 @@ function getAmountSign(direction: TransactionDirection): string {
 interface ActivityTimelineProps {
   groups: readonly ActivityTimelineGroup[]
   accounts: ReadonlyMap<AccountId, string>
+  onSelect?: (transaction: FinanceTransaction) => void
 }
 
-export function ActivityTimeline({ groups, accounts }: ActivityTimelineProps) {
+export function ActivityTimeline({ groups, accounts, onSelect }: ActivityTimelineProps) {
   return (
     <section className="activity-timeline" aria-labelledby="timeline-title">
       <div className="activity-section-heading">
@@ -131,11 +137,11 @@ export function ActivityTimeline({ groups, accounts }: ActivityTimelineProps) {
           <h3>{group.label}</h3>
           <ul className="timeline-list">
             {group.transactions.map((transaction) => {
-              const Icon = categoryIcons[transaction.category]
+              const Icon = getCategoryIcon(transaction.category)
               const accountLabel = accounts.get(transaction.accountId) ?? 'Account'
 
               return (
-                <li key={transaction.id} className="timeline-row">
+                <li key={transaction.id} className="timeline-row" onClick={() => onSelect?.(transaction)}>
                   <span
                     className={[
                       'timeline-icon',

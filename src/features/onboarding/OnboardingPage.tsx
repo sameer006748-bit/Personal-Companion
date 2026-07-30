@@ -8,7 +8,7 @@ import {
   OnboardingPrivacyNote,
   OnboardingProgress,
 } from './OnboardingComponents'
-import type { AccountId } from '../../models/finance'
+import { ACCOUNT_TYPE_LABELS, type AccountType } from '../../models/finance'
 import {
   createOnboardingDraft,
   type IncomeType,
@@ -23,12 +23,6 @@ const incomeTypes: readonly { value: IncomeType; label: string }[] = [
   { value: 'variable', label: 'Variable income' },
   { value: 'fixed', label: 'Fixed income' },
   { value: 'mixed', label: 'Mixed income' },
-]
-
-const accounts: readonly { id: AccountId; label: string }[] = [
-  { id: 'cash', label: 'Cash' },
-  { id: 'meezan-bank', label: 'Meezan Bank' },
-  { id: 'jazzcash', label: 'JazzCash' },
 ]
 
 const themes: readonly { value: ThemePreference; label: string }[] = [
@@ -116,6 +110,7 @@ export function OnboardingPage() {
   const headingRef = useRef<HTMLHeadingElement>(null)
   const step = settings.onboarding.currentStep
   const draft = settings.onboarding.draft ?? createOnboardingDraft(settings)
+  const accountDrafts = draft.accounts ?? [{ id: 'cash', name: 'Cash', type: 'cash' as const, openingBalance: draft.accountBalances.cash ?? 0, isDefault: true }]
 
   useEffect(() => {
     previewOnboardingDraft(draft)
@@ -160,19 +155,6 @@ export function OnboardingPage() {
       ? draft.initials
       : deriveInitials(value)
     updateDraft({ ...draft, fullName: value, initials })
-  }
-
-  function handleBalanceChange(accountId: AccountId, value: string) {
-    const parsed = value.length === 0 ? 0 : Number(value)
-
-    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100000000) {
-      return
-    }
-
-    updateDraft({
-      ...draft,
-      accountBalances: { ...draft.accountBalances, [accountId]: parsed },
-    })
   }
 
   return (
@@ -249,9 +231,9 @@ export function OnboardingPage() {
               Add the amounts currently available in your everyday accounts.
             </StepTitle>
             <div className="onboarding-balance-list" aria-describedby={errors.balances ? 'onboarding-balances-error' : undefined}>
-              {accounts.map((account) => (
+              {accountDrafts.map((account) => (
                 <div key={account.id} className="onboarding-balance-field">
-                  <label htmlFor={`onboarding-balance-${account.id}`}>{account.label}</label>
+                  <label htmlFor={`onboarding-balance-${account.id}`}>Account name<input value={account.name} onChange={(event) => updateDraft({ ...draft, accounts: accountDrafts.map((item) => item.id === account.id ? { ...item, name: event.target.value } : item) })} /></label>
                   <div>
                     <span>PKR</span>
                     <input
@@ -261,10 +243,12 @@ export function OnboardingPage() {
                       max="100000000"
                       step="1"
                       inputMode="numeric"
-                      value={draft.accountBalances[account.id]}
-                      onChange={(event) => handleBalanceChange(account.id, event.target.value)}
+                      value={account.openingBalance}
+                      onChange={(event) => { const balance = Number(event.target.value || 0); if (Number.isInteger(balance) && balance >= 0) updateDraft({ ...draft, accountBalances: { ...draft.accountBalances, [account.id]: balance }, accounts: accountDrafts.map((item) => item.id === account.id ? { ...item, openingBalance: balance } : item) }) }}
                     />
                   </div>
+                  <select aria-label={`${account.name || 'Account'} type`} value={account.type} onChange={(event) => updateDraft({ ...draft, accounts: accountDrafts.map((item) => item.id === account.id ? { ...item, type: event.target.value as AccountType } : item) })}>{(Object.keys(ACCOUNT_TYPE_LABELS) as AccountType[]).map((type) => <option key={type} value={type}>{ACCOUNT_TYPE_LABELS[type]}</option>)}</select>
+                  {accountDrafts.length > 1 ? <button type="button" onClick={() => { const remaining = accountDrafts.filter((item) => item.id !== account.id); updateDraft({ ...draft, accounts: remaining.map((item, index) => ({ ...item, isDefault: item.isDefault || (account.isDefault && index === 0) })), defaultAccountId: remaining.find((item) => item.isDefault)?.id ?? remaining[0]!.id }) }}>Remove</button> : null}
                 </div>
               ))}
             </div>
@@ -276,15 +260,16 @@ export function OnboardingPage() {
             <fieldset className="onboarding-field onboarding-choice-field">
               <legend>Default account</legend>
               <div className="onboarding-choice-group" role="radiogroup" aria-label="Default account">
-                {accounts.map((account) => (
+                {accountDrafts.map((account) => (
                   <OnboardingChoice
                     key={account.id}
-                    label={account.label}
-                    selected={draft.defaultAccountId === account.id}
-                    onClick={() => updateDraft({ ...draft, defaultAccountId: account.id })}
+                    label={account.name || 'Unnamed account'}
+                    selected={account.isDefault}
+                    onClick={() => updateDraft({ ...draft, defaultAccountId: account.id, accounts: accountDrafts.map((item) => ({ ...item, isDefault: item.id === account.id })) })}
                   />
-                ))}
-              </div>
+              ))}
+            </div>
+            <button type="button" className="glass-control onboarding-add-account" onClick={() => updateDraft({ ...draft, accounts: [...accountDrafts, { id: `onboarding-${Date.now()}`, name: '', type: 'bank', openingBalance: 0, isDefault: false }] })}>Add another account</button>
             </fieldset>
           </section>
         ) : null}
@@ -355,14 +340,14 @@ export function OnboardingPage() {
               <div><dt>Full name</dt><dd>{draft.fullName}</dd></div>
               <div><dt>Initials</dt><dd>{draft.initials}</dd></div>
               <div><dt>Income type</dt><dd>{incomeTypes.find((incomeType) => incomeType.value === draft.incomeType)?.label}</dd></div>
-              <div><dt>Default account</dt><dd>{accounts.find((account) => account.id === draft.defaultAccountId)?.label}</dd></div>
+              <div><dt>Default account</dt><dd>{accountDrafts.find((account) => account.isDefault)?.name}</dd></div>
             </dl>
             <section className="onboarding-review-balances" aria-labelledby="review-balances-title">
               <h2 id="review-balances-title">Starting balances</h2>
-              {accounts.map((account) => (
+              {accountDrafts.map((account) => (
                 <div key={account.id}>
-                  <span>{account.label}</span>
-                  <PrivateAmount amount={draft.accountBalances[account.id]} />
+                  <span>{account.name || 'Unnamed account'} · {ACCOUNT_TYPE_LABELS[account.type]}{account.isDefault ? ' · Default' : ''}</span>
+                  <PrivateAmount amount={account.openingBalance} />
                 </div>
               ))}
               <div className="onboarding-review-total">

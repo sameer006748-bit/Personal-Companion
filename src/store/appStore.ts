@@ -3,6 +3,22 @@ import { create } from 'zustand'
 import { CURRENCY_CODE, type CurrencyCode } from '../models/currency'
 import type { AccountId } from '../models/finance'
 import {
+  archiveAccount as archiveFinanceAccount,
+  createAccount as createFinanceAccount,
+  createTransaction as createFinanceTransaction,
+  deleteTransaction as deleteFinanceTransaction,
+  loadFinanceState,
+  reconcileOnboardingDraft,
+  restoreAccount as restoreFinanceAccount,
+  saveFinanceState,
+  setDefaultAccount as setFinanceDefaultAccount,
+  updateAccount as updateFinanceAccount,
+  updateTransaction as updateFinanceTransaction,
+  type AccountInput,
+  type FinanceState,
+  type TransactionInput,
+} from '../lib/financeCore'
+import {
   createOnboardingDraft,
   type AssistantResponseStyle,
   type FinancialPositionStyle,
@@ -11,7 +27,7 @@ import {
   type OnboardingStep,
   type ThemePreference,
   type UserSettings,
-  loadSettings,
+  loadSettingsWithOrigin,
   saveSettings,
 } from '../models/settings'
 
@@ -22,6 +38,7 @@ interface AppState {
   privacyMode: boolean
   theme: Theme
   settings: UserSettings
+  finance: FinanceState
   togglePrivacyMode: () => void
   toggleTheme: () => void
   setThemePreference: (preference: ThemePreference) => void
@@ -38,6 +55,14 @@ interface AppState {
   setOnboardingStep: (step: OnboardingStep) => void
   completeOnboarding: () => void
   restartOnboarding: () => void
+  createFinanceAccount: (input: AccountInput) => string | undefined
+  updateFinanceAccount: (accountId: AccountId, input: AccountInput) => string | undefined
+  archiveFinanceAccount: (accountId: AccountId) => string | undefined
+  restoreFinanceAccount: (accountId: AccountId) => string | undefined
+  setFinanceDefaultAccount: (accountId: AccountId) => string | undefined
+  createFinanceTransaction: (input: TransactionInput) => string | undefined
+  updateFinanceTransaction: (transactionId: string, input: TransactionInput) => string | undefined
+  deleteFinanceTransaction: (transactionId: string) => string | undefined
 }
 
 function resolveTheme(preference: ThemePreference): Theme {
@@ -63,15 +88,33 @@ function persist(settings: UserSettings): void {
   saveSettings(settings)
 }
 
-const initialSettings = loadSettings()
+const { settings: initialSettings, origin: initialOrigin } = loadSettingsWithOrigin()
 const initialTheme = resolveTheme(initialSettings.appearance.themePreference)
+const initialFinance = loadFinanceState(initialSettings, initialOrigin)
 
-export const useAppStore = create<AppState>((set, get) => ({
+export const useAppStore = create<AppState>((set, get) => {
+  function commitFinance(finance: FinanceState): void {
+    const defaultAccountId = finance.accounts.find(
+      (account) => !account.isArchived && account.isDefault,
+    )?.id
+    const settings = defaultAccountId
+      ? {
+          ...get().settings,
+          profile: { ...get().settings.profile, defaultAccountId },
+        }
+      : get().settings
+    saveFinanceState(finance)
+    persist(settings)
+    set({ finance, settings })
+  }
+
+  return {
   currency: CURRENCY_CODE,
   privacyMode:
     initialSettings.privacy.hideAmounts || initialSettings.privacy.hideBalancesOnLaunch,
   theme: initialTheme,
   settings: initialSettings,
+  finance: initialFinance,
   togglePrivacyMode: () => {
     const next = !get().privacyMode
     const updated = {
@@ -204,15 +247,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   completeOnboarding: () => {
     const currentSettings = get().settings
+    const currentFinance = get().finance
     const draft = currentSettings.onboarding.draft ?? createOnboardingDraft(currentSettings)
     const resolved = resolveTheme(draft.themePreference)
+    const reconciliation = reconcileOnboardingDraft(currentFinance, draft)
+    if (reconciliation.error) {
+      set({ settings: { ...currentSettings, onboarding: { ...currentSettings.onboarding, currentStep: 3 } } })
+      return
+    }
     const updated = {
       ...currentSettings,
       profile: {
         fullName: draft.fullName.trim(),
         initials: draft.initials,
         incomeType: draft.incomeType,
-        defaultAccountId: draft.defaultAccountId,
+        defaultAccountId: reconciliation.defaultAccountId,
       },
       appearance: { themePreference: draft.themePreference },
       privacy: {
@@ -221,7 +270,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       },
       finance: {
         ...currentSettings.finance,
-        accountBalances: { ...draft.accountBalances },
+        accountBalances: Object.fromEntries(reconciliation.state.accounts.filter((account) => !account.isArchived).map((account) => [account.id, account.openingBalance])),
       },
       onboarding: {
         version: 1,
@@ -231,23 +280,81 @@ export const useAppStore = create<AppState>((set, get) => ({
       },
     }
     persist(updated)
+    saveFinanceState(reconciliation.state)
     applyTheme(resolved)
-    set({ theme: resolved, privacyMode: draft.hideAmounts, settings: updated })
+    set({ theme: resolved, privacyMode: draft.hideAmounts, settings: updated, finance: reconciliation.state })
   },
   restartOnboarding: () => {
     const currentSettings = get().settings
+    const currentFinance = get().finance
+    const draft = createOnboardingDraft({
+      profile: currentSettings.profile,
+      appearance: currentSettings.appearance,
+      privacy: currentSettings.privacy,
+      finance: currentSettings.finance,
+      accounts: currentFinance.accounts,
+    })
     const updated = {
       ...currentSettings,
       onboarding: {
         version: 1,
         status: 'in-progress' as const,
-        currentStep: 5 as OnboardingStep,
-        draft: createOnboardingDraft(currentSettings),
+        currentStep: 3 as OnboardingStep,
+        draft,
       },
     }
     persist(updated)
     set({ settings: updated })
   },
-}))
+  createFinanceAccount: (input) => {
+    const result = createFinanceAccount(get().finance, input)
+    if (result.error) return result.error
+    commitFinance(result.state)
+    return undefined
+  },
+  updateFinanceAccount: (accountId, input) => {
+    const result = updateFinanceAccount(get().finance, accountId, input)
+    if (result.error) return result.error
+    commitFinance(result.state)
+    return undefined
+  },
+  archiveFinanceAccount: (accountId) => {
+    const result = archiveFinanceAccount(get().finance, accountId)
+    if (result.error) return result.error
+    commitFinance(result.state)
+    return undefined
+  },
+  restoreFinanceAccount: (accountId) => {
+    const result = restoreFinanceAccount(get().finance, accountId)
+    if (result.error) return result.error
+    commitFinance(result.state)
+    return undefined
+  },
+  setFinanceDefaultAccount: (accountId) => {
+    const result = setFinanceDefaultAccount(get().finance, accountId)
+    if (result.error) return result.error
+    commitFinance(result.state)
+    return undefined
+  },
+  createFinanceTransaction: (input) => {
+    const result = createFinanceTransaction(get().finance, input)
+    if (result.error) return result.error
+    commitFinance(result.state)
+    return undefined
+  },
+  updateFinanceTransaction: (transactionId, input) => {
+    const result = updateFinanceTransaction(get().finance, transactionId, input)
+    if (result.error) return result.error
+    commitFinance(result.state)
+    return undefined
+  },
+  deleteFinanceTransaction: (transactionId) => {
+    const result = deleteFinanceTransaction(get().finance, transactionId)
+    if (result.error) return result.error
+    commitFinance(result.state)
+    return undefined
+  },
+  }
+})
 
 applyTheme(initialTheme)

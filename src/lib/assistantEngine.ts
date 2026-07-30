@@ -10,6 +10,7 @@ import {
   getLargestExpenseDrivers,
   getMonthlyExpenses,
   getMonthlyIncome,
+  getMonthlyTransactions,
   getNetMonthlyPosition,
   getNetOutstandingPosition,
   getOutstandingPayableItems,
@@ -108,7 +109,12 @@ function createMonthlySummary(data: PersonalFinanceData): AssistantResponse {
 
   return {
     intent: 'monthly-summary',
-    text: 'This month, incoming money is ahead of recorded spending. Your current net position remains positive.',
+    text:
+      moneyIn === 0 && moneyOut === 0
+        ? 'There are no recorded transactions for this period yet.'
+        : netPosition >= 0
+          ? 'This month, incoming money is ahead of recorded spending. Your current net position remains positive.'
+          : 'This month, recorded spending is ahead of incoming money. Your current net position is negative.',
     insight: {
       title: 'This month at a glance',
       metrics: [
@@ -131,7 +137,10 @@ function createSafeToSpendResponse(
   if (!requestedAmount) {
     return {
       intent: 'safe-to-spend',
-      text: 'Based on the current recorded balances and commitments, this is the amount currently available to spend with care.',
+      text:
+        safeToSpend === 0
+          ? 'There is no spending room available based on the current recorded balances.'
+          : 'Based on the current recorded balances and commitments, this is the amount currently available to spend with care.',
       insight: {
         title: 'Current spending room',
         metrics: [{ label: 'Safe to Spend', amount: safeToSpend, tone: 'positive' }],
@@ -169,7 +178,10 @@ function createReceivablesResponse(data: PersonalFinanceData): AssistantResponse
 
   return {
     intent: 'receivables',
-    text: 'You have outstanding money to receive across current client and personal items. Nova Studio needs the earliest follow-up.',
+    text:
+      items.length === 0
+        ? 'There are no outstanding receivables recorded.'
+        : `You have outstanding money to receive across ${items.length} recorded item${items.length === 1 ? '' : 's'}.`,
     insight: {
       title: 'Outstanding receivables',
       rows: [
@@ -195,7 +207,10 @@ function createPayablesResponse(data: PersonalFinanceData): AssistantResponse {
 
   return {
     intent: 'payables',
-    text: 'These are the outstanding payments in your current financial picture. PrintPoint is the only overdue payable.',
+    text:
+      items.length === 0
+        ? 'There are no outstanding payables recorded.'
+        : `These are the ${items.length} outstanding payment${items.length === 1 ? '' : 's'} in your current financial picture.`,
     insight: {
       title: 'Outstanding payables',
       rows: [
@@ -221,7 +236,10 @@ function createAttentionResponse(data: PersonalFinanceData): AssistantResponse {
 
   return {
     intent: 'attention-items',
-    text: 'Start with the overdue invoice, then clear the delayed payable and scheduled commitments in this order.',
+    text:
+      items.length === 0
+        ? 'There are no overdue items that need attention.'
+        : 'Work through these overdue items in the order shown.',
     insight: {
       title: 'Needs attention',
       rows: items.map((item) => ({
@@ -240,7 +258,10 @@ function createExpenseResponse(data: PersonalFinanceData): AssistantResponse {
 
   return {
     intent: 'expense-explanation',
-    text: 'Housing was the main expense driver this month. Groceries and shopping were the next largest areas of recorded spending.',
+    text:
+      drivers.length === 0
+        ? 'There are no recorded expenses for this period yet.'
+        : `${drivers[0]!.label} was the main expense driver this month.`,
     insight: {
       title: 'Largest spending drivers',
       rows: drivers.map((driver) => ({
@@ -256,7 +277,10 @@ function createExpenseResponse(data: PersonalFinanceData): AssistantResponse {
 function createAvailableBalanceResponse(data: PersonalFinanceData): AssistantResponse {
   return {
     intent: 'available-balance',
-    text: 'Your available balance is spread across cash, bank, and wallet accounts.',
+    text:
+      getTotalAvailable(data) === 0
+        ? 'There is no available balance recorded across your accounts yet.'
+        : 'Your available balance is spread across your recorded accounts.',
     insight: {
       title: 'Available balance',
       rows: [
@@ -273,17 +297,26 @@ function createAvailableBalanceResponse(data: PersonalFinanceData): AssistantRes
 }
 
 function createFinancialPositionResponse(data: PersonalFinanceData): AssistantResponse {
+  const available = getTotalAvailable(data)
+  const receivables = getOutstandingPlanningReceivables(data)
+  const payables = getOutstandingPlanningPayables(data)
+  const hasAnyRecord = available > 0 || receivables > 0 || payables > 0 || getMonthlyTransactions(data).length > 0
+
   return {
     intent: 'financial-position',
-    text: 'Your financial position is comfortable. Current available balance and positive monthly cash flow are covering recorded commitments.',
+    text: !hasAnyRecord
+      ? 'There is not enough recorded information yet to summarise your financial position.'
+      : getFinancialPosition(data) === 'Comfortable'
+        ? 'Your financial position is comfortable. Current available balance and monthly cash flow are covering recorded commitments.'
+        : 'Your financial position is tight based on the currently recorded balances and commitments.',
     insight: {
       title: 'Financial position',
       metrics: [
-        { label: 'Available Balance', amount: getTotalAvailable(data), tone: 'positive' },
+        { label: 'Available Balance', amount: available, tone: 'positive' },
         { label: 'Safe to Spend', amount: getSafeToSpend(data), tone: 'positive' },
         { label: 'Monthly Net Position', amount: getNetMonthlyPosition(data), sign: '+', tone: 'positive' },
-        { label: 'Receivables', amount: getOutstandingPlanningReceivables(data) },
-        { label: 'Payables', amount: getOutstandingPlanningPayables(data), sign: '−', tone: 'negative' },
+        { label: 'Receivables', amount: receivables },
+        { label: 'Payables', amount: payables, sign: '−', tone: 'negative' },
         { label: 'Net Outstanding Position', amount: getNetOutstandingPosition(data), sign: '+', tone: 'positive' },
       ],
       rows: [{ label: 'Status', detail: getFinancialPosition(data) }],

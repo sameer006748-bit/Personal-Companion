@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   Check,
   ChevronRight,
@@ -19,17 +19,13 @@ import {
   type ThemePreference,
 } from '../../models/settings'
 import { useAppStore } from '../../store/appStore'
+import { getActiveAccounts } from '../../lib/financeCore'
+import { AccountManagement } from '../finance/AccountManagement'
 
 const incomeTypeLabels: Record<IncomeType, string> = {
   variable: 'Variable income',
   fixed: 'Fixed income',
   mixed: 'Mixed income',
-}
-
-const accountLabels: Record<AccountId, string> = {
-  cash: 'Cash',
-  'meezan-bank': 'Meezan Bank',
-  jazzcash: 'JazzCash',
 }
 
 const themeLabels: Record<ThemePreference, string> = {
@@ -62,6 +58,8 @@ function deriveInitials(name: string): string {
 export function ProfilePage() {
   const navigate = useNavigate()
   const settings = useAppStore((state) => state.settings)
+  const finance = useAppStore((state) => state.finance)
+  const activeAccounts = useMemo(() => getActiveAccounts(finance), [finance])
   const privacyMode = useAppStore((state) => state.privacyMode)
   const togglePrivacyMode = useAppStore((state) => state.togglePrivacyMode)
   const setThemePreference = useAppStore((state) => state.setThemePreference)
@@ -144,6 +142,8 @@ export function ProfilePage() {
     }
   }
 
+  const defaultAccountName = finance.accounts.find((account) => account.id === settings.profile.defaultAccountId)?.name ?? settings.profile.defaultAccountId
+
   return (
     <div className="profile-page">
       <header className="profile-header">
@@ -181,7 +181,7 @@ export function ProfilePage() {
           </div>
           <div>
             <dt>Default Account</dt>
-            <dd>{accountLabels[settings.profile.defaultAccountId]}</dd>
+            <dd>{defaultAccountName}</dd>
           </div>
         </dl>
       </section>
@@ -201,14 +201,19 @@ export function ProfilePage() {
           </div>
           <div className="profile-field">
             <label htmlFor="profile-income-type">Income type</label>
-            <select id="profile-income-type" value={editIncomeType} onChange={(event) => setEditIncomeType(event.target.value as IncomeType)}>
+            <select id="profile-income-type" value={editIncomeType} onChange={(event) => {
+              const value = event.target.value
+              if (value === 'variable' || value === 'fixed' || value === 'mixed') {
+                setEditIncomeType(value)
+              }
+            }}>
               {(Object.keys(incomeTypeLabels) as IncomeType[]).map((key) => <option key={key} value={key}>{incomeTypeLabels[key]}</option>)}
             </select>
           </div>
           <div className="profile-field">
             <label htmlFor="profile-account">Default account</label>
-            <select id="profile-account" value={editDefaultAccount} onChange={(event) => setEditDefaultAccount(event.target.value as AccountId)}>
-              {(Object.keys(accountLabels) as AccountId[]).map((key) => <option key={key} value={key}>{accountLabels[key]}</option>)}
+            <select id="profile-account" value={editDefaultAccount} onChange={(event) => setEditDefaultAccount(event.target.value)}>
+              {activeAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
             </select>
           </div>
           <div className="profile-edit-actions">
@@ -221,10 +226,12 @@ export function ProfilePage() {
       <SettingsSection title="Financial preferences" id="finance-preferences">
         <SettingRow label="Currency" locked>PKR</SettingRow>
         <SettingSelectRow label="Income type" value={settings.profile.incomeType} options={incomeTypeLabels} onChange={(value) => { setIncomeType(value as IncomeType); showSaved('Preferences saved') }} />
-        <SettingSelectRow label="Default account" value={settings.profile.defaultAccountId} options={accountLabels} onChange={(value) => { setDefaultAccount(value as AccountId); showSaved('Preferences saved') }} />
+        <SettingSelectRow label="Default account" value={settings.profile.defaultAccountId} options={Object.fromEntries(activeAccounts.map((account) => [account.id, account.name]))} onChange={(value) => { setDefaultAccount(value); showSaved('Preferences saved') }} />
         <SettingRow label="Month start">1st day of each month</SettingRow>
         <SettingSelectRow label="Financial position style" value={settings.finance.financialPositionStyle} options={{ simple: 'Simple', detailed: 'Detailed' }} onChange={(value) => { setFinancialPositionStyle(value as FinancialPositionStyle); showSaved('Preferences saved') }} />
       </SettingsSection>
+
+      <AccountManagement />
 
       <SettingsSection title="Appearance" id="appearance">
         <ThemeSelector current={settings.appearance.themePreference} onChange={(value) => { setThemePreference(value); showSaved('Preferences saved') }} />

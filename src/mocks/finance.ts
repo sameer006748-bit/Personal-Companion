@@ -1,4 +1,5 @@
-import type { PersonalFinanceData } from '../models/finance'
+import { getAccountBalance, getActiveAccounts, type FinanceState } from '../lib/financeCore'
+import type { FinanceTransaction, PersonalFinanceData } from '../models/finance'
 import type { UserSettings } from '../models/settings'
 
 export const personalFinanceData: PersonalFinanceData = {
@@ -524,25 +525,97 @@ export const personalFinanceData: PersonalFinanceData = {
   previousMonthIncome: 125000,
 }
 
-export function getActivePersonalFinanceData(
+function toFinanceTransactions(finance: FinanceState): readonly FinanceTransaction[] {
+  return finance.transactions.map((transaction) => ({
+    id: transaction.id,
+    title: transaction.title,
+    ...(transaction.personOrBusiness
+      ? { counterparty: transaction.personOrBusiness }
+      : {}),
+    accountId: transaction.accountId,
+    date: transaction.date,
+    amount: transaction.amount,
+    direction: transaction.type,
+    category: transaction.categoryId,
+    status: transaction.status,
+    isLocal: true,
+    ...(transaction.destinationAccountId
+      ? { destinationAccountId: transaction.destinationAccountId }
+      : {}),
+    ...(transaction.note ? { note: transaction.note } : {}),
+    updatedAt: transaction.updatedAt,
+  }))
+}
+
+function toFinanceProfile(settings: UserSettings): PersonalFinanceData['profile'] {
+  return {
+    name: settings.profile.fullName,
+    initials: settings.profile.initials,
+    incomeType:
+      settings.profile.incomeType === 'variable'
+        ? 'Variable income'
+        : settings.profile.incomeType === 'fixed'
+          ? 'Fixed income'
+          : 'Mixed income',
+  }
+}
+
+function currentMonth(today: string): string {
+  return today.slice(0, 7)
+}
+
+// Real user runtime. Reads only persisted local finance state; the seeded
+// fixture below is never merged in.
+export function getLocalPersonalFinanceData(
   settings: UserSettings,
+  finance: FinanceState,
+  today: string = new Date().toISOString().slice(0, 10),
 ): PersonalFinanceData {
   return {
-    ...personalFinanceData,
-    profile: {
-      name: settings.profile.fullName,
-      initials: settings.profile.initials,
-      incomeType:
-        settings.profile.incomeType === 'variable'
-          ? 'Variable income'
-          : settings.profile.incomeType === 'fixed'
-            ? 'Fixed income'
-            : 'Mixed income',
-    },
-    accounts: personalFinanceData.accounts.map((account) => ({
-      ...account,
-      balance: settings.finance.accountBalances[account.id],
-      isDefault: account.id === settings.profile.defaultAccountId,
+    reportingMonth: currentMonth(today),
+    activityReferenceDate: today,
+    planningReferenceDate: today,
+    profile: toFinanceProfile(settings),
+    accounts: getActiveAccounts(finance).map((account) => ({
+      id: account.id,
+      label: account.name,
+      balance: getAccountBalance(finance, account.id),
+      isDefault: account.isDefault,
     })),
+    transactions: toFinanceTransactions(finance),
+    receivables: [],
+    payables: [],
+    commitments: [],
+    planningReceivables: [],
+    planningPayables: [],
+    planningCommitments: [],
+    liquidityReserve: 0,
+    previousMonthIncome: 0,
+  }
+}
+
+// Opt-in demo/design preview data. Never reached by normal runtime.
+export function getDemoPersonalFinanceData(
+  settings: UserSettings,
+  finance?: FinanceState,
+): PersonalFinanceData {
+  const localTransactions = finance ? toFinanceTransactions(finance) : []
+
+  return {
+    ...personalFinanceData,
+    profile: toFinanceProfile(settings),
+    accounts: finance
+      ? getActiveAccounts(finance).map((account) => ({
+          id: account.id,
+          label: account.name,
+          balance: getAccountBalance(finance, account.id),
+          isDefault: account.isDefault,
+        }))
+      : personalFinanceData.accounts.map((account) => ({
+          ...account,
+          balance: settings.finance.accountBalances[account.id] ?? account.balance,
+          isDefault: account.id === settings.profile.defaultAccountId,
+        })),
+    transactions: [...personalFinanceData.transactions, ...localTransactions],
   }
 }

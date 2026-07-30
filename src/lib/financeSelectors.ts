@@ -157,6 +157,10 @@ export function getSafeToSpend(data: PersonalFinanceData): number {
 export function getFinancialPosition(
   data: PersonalFinanceData,
 ): FinancialPosition {
+  if (data.liquidityReserve === 0) {
+    return getSafeToSpend(data) > 0 ? 'Comfortable' : 'Tight'
+  }
+
   return getSafeToSpend(data) >= data.liquidityReserve * 4
     ? 'Comfortable'
     : 'Tight'
@@ -197,6 +201,17 @@ export function getIncomeGrowthPercentage(data: PersonalFinanceData): number {
 }
 
 export function getFinancialInsight(data: PersonalFinanceData): string {
+  if (getMonthlyTransactions(data).length === 0) {
+    return 'No transactions recorded yet. Your monthly insight will appear once you add activity.'
+  }
+
+  if (data.previousMonthIncome === 0) {
+    const net = getNetMonthlyPosition(data)
+    return net >= 0
+      ? 'Income exceeds recorded spending so far this month.'
+      : 'Recorded spending exceeds income so far this month.'
+  }
+
   return `Income is ${getIncomeGrowthPercentage(data)}% higher than last month, while essential commitments remain covered.`
 }
 
