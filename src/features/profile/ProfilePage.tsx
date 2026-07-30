@@ -21,6 +21,7 @@ import {
 import { useAppStore } from '../../store/appStore'
 import { getActiveAccounts } from '../../lib/financeCore'
 import { AccountManagement } from '../finance/AccountManagement'
+import { CloudSyncSection } from './CloudSyncSection'
 
 const incomeTypeLabels: Record<IncomeType, string> = {
   variable: 'Variable income',
@@ -261,6 +262,8 @@ export function ProfilePage() {
         />
         <ClearConversationRow showSaved={showSaved} />
       </SettingsSection>
+
+      <CloudSyncSection />
 
       <SettingsSection title="About" id="about">
         <SettingRow label="Application">Personal Companion</SettingRow>
