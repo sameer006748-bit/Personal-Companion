@@ -6,6 +6,7 @@ import { Cloud, LogOut, RefreshCw, ShieldCheck } from 'lucide-react'
 import { getCloudImportPreview, importLocalState } from '../../lib/cloudRepository'
 import { checkCloudConnection, getCloudConfiguration, getFriendlyCloudError, supabase } from '../../lib/supabase'
 import { useAppStore } from '../../store/appStore'
+import { DataSafetySection } from './DataSafetySection'
 
 export function CloudSyncSection() {
   const navigate = useNavigate()
@@ -72,5 +73,6 @@ export function CloudSyncSection() {
     {supabase && !user ? <><p className="cloud-sync-note">{status}. Local data remains available on this device.</p><div className="cloud-sync-actions"><button type="button" className="finance-dialog-save" onClick={() => void navigate('/auth')}>Connect / Sign in</button><button type="button" className="auth-secondary" onClick={() => void retry()}><RefreshCw aria-hidden="true" /> Retry connection</button></div></> : null}
     {user && preview ? <><div className="cloud-account"><span><Cloud aria-hidden="true" /></span><div><strong>Connected</strong><small>{maskEmail(preview.email)}</small></div><p>{lastSync ? `Last synced ${new Date(lastSync).toLocaleString()}` : 'Sync not started'}</p></div><div className="cloud-metrics">{([{ label: 'Accounts', value: preview.accounts }, { label: 'Transactions', value: preview.transactions }, { label: 'Receivables', value: preview.receivables }, { label: 'Payables', value: preview.payables }, { label: 'Commitments', value: preview.commitments }]).map((metric) => <div key={metric.label}><strong>{metric.value}</strong><span>{metric.value === 1 ? metric.label.slice(0, -1) : metric.label}</span></div>)}</div>{confirming ? <div className="cloud-sync-confirm"><p>Import these local records to {maskEmail(preview.email)}? Local data will remain on this device.</p><button type="button" className="finance-dialog-save" disabled={isImporting} onClick={() => void importNow()}>{isImporting ? 'Importing' : 'Confirm import'}</button><button type="button" disabled={isImporting} onClick={() => setConfirming(false)}>Cancel</button></div> : <div className="cloud-sync-actions">{!hasSynced ? <button type="button" className="finance-dialog-save" onClick={() => setConfirming(true)}>Import local data</button> : <span className="cloud-import-complete"><ShieldCheck aria-hidden="true" /> Import complete</span>}<button type="button" className="auth-secondary" onClick={() => setConfirming(true)}><RefreshCw aria-hidden="true" /> Sync now</button><button type="button" className="cloud-sign-out" onClick={() => void signOut()}><LogOut aria-hidden="true" /> Sign out</button></div>}</> : null}
     {error ? <p className="finance-dialog-error" role="alert">{error}</p> : null}
+    <DataSafetySection user={user} />
   </section>
 }

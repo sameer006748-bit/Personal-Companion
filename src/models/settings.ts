@@ -93,7 +93,8 @@ interface LegacyUserSettings {
   assistant: AssistantSettings
 }
 
-const STORAGE_KEY = 'personal-companion-settings'
+export const SETTINGS_STORAGE_KEY = 'personal-companion-settings'
+const STORAGE_KEY = SETTINGS_STORAGE_KEY
 const CURRENT_VERSION = 2
 const ONBOARDING_VERSION = 1
 
@@ -291,6 +292,10 @@ function isValidSettings(value: unknown): value is UserSettings {
     isBalances(value.finance.accountBalances) &&
     isOnboarding(onboarding)
   )
+}
+
+export function isUserSettings(value: unknown): value is UserSettings {
+  return isValidSettings(value)
 }
 
 function isLegacySettings(value: unknown): value is LegacyUserSettings {

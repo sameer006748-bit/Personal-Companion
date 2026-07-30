@@ -42,7 +42,8 @@ export interface FinanceResult {
   error?: string
 }
 
-const STORAGE_KEY = 'personal-companion-finance'
+export const FINANCE_STORAGE_KEY = 'personal-companion-finance'
+const STORAGE_KEY = FINANCE_STORAGE_KEY
 const MAX_AMOUNT = 100000000
 
 function makeId(prefix: string): string {
@@ -93,7 +94,7 @@ function isTransaction(value: unknown): value is LocalTransaction {
   return typeof transaction.id === 'string' && (transaction.type === 'income' || transaction.type === 'expense' || transaction.type === 'transfer') && typeof transaction.amount === 'number' && isPositiveInteger(transaction.amount) && typeof transaction.date === 'string' && typeof transaction.title === 'string' && isCategory(transaction.categoryId) && typeof transaction.accountId === 'string' && (transaction.destinationAccountId === undefined || typeof transaction.destinationAccountId === 'string') && isStatus(transaction.status) && transaction.isLocal === true && typeof transaction.createdAt === 'string' && typeof transaction.updatedAt === 'string'
 }
 
-function isFinanceState(value: unknown): value is FinanceState {
+export function isFinanceState(value: unknown): value is FinanceState {
   if (typeof value !== 'object' || value === null) return false
   const state = value as Record<string, unknown>
   return state.version === 1 && Array.isArray(state.accounts) && state.accounts.every(isAccount) && Array.isArray(state.transactions) && state.transactions.every(isTransaction) && typeof state.migratedFromSettings === 'boolean'

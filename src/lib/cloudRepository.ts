@@ -1,8 +1,10 @@
 import type { User } from '@supabase/supabase-js'
 
+import { ALL_CATEGORIES, type TransactionCategory } from '../models/finance'
 import type { FinanceState } from './financeCore'
 import type { PlanningState } from '../models/planning'
 import type { UserSettings } from '../models/settings'
+import { isUserSettings } from '../models/settings'
 import { getSupabaseClient } from './supabase'
 
 export interface CloudCounts {
@@ -171,4 +173,179 @@ export async function importLocalState(
     throw new Error('Cloud verification did not complete.')
   }
   return snapshot
+}
+
+// --- Cloud read-back for restore ---------------------------------------------
+
+function text(value: unknown): string {
+  if (typeof value !== 'string') throw new Error('Cloud data could not be validated.')
+  return value
+}
+
+function optionalText(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined
+  return text(value)
+}
+
+function integer(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    throw new Error('Cloud data could not be validated.')
+  }
+  return value
+}
+
+function flag(value: unknown): boolean {
+  if (typeof value !== 'boolean') throw new Error('Cloud data could not be validated.')
+  return value
+}
+
+function isoDate(value: unknown): string {
+  return text(value).slice(0, 10)
+}
+
+function isoTimestamp(value: unknown): string {
+  const parsed = new Date(text(value))
+  if (Number.isNaN(parsed.getTime())) throw new Error('Cloud data could not be validated.')
+  return parsed.toISOString()
+}
+
+function optional<T>(value: T | undefined, key: string): Record<string, T> {
+  return value === undefined ? {} : { [key]: value }
+}
+
+// Categories are a closed domain union, so a cloud row is only accepted when it
+// names a category this build knows.
+function category(value: unknown): TransactionCategory {
+  const candidate = text(value)
+  if (!ALL_CATEGORIES.some((definition) => definition.id === candidate)) {
+    throw new Error('Cloud data could not be validated.')
+  }
+  return candidate as TransactionCategory
+}
+
+// Only rows the current user owns and that carry no tombstone are eligible.
+function liveRows(value: unknown): readonly Record<string, unknown>[] {
+  return assertRows(value).filter((row) => row.deleted_at === null || row.deleted_at === undefined)
+}
+
+export interface CloudRestorePayload {
+  settings: UserSettings | undefined
+  finance: FinanceState
+  planning: PlanningState
+  counts: CloudCounts
+  updatedAt: string | undefined
+}
+
+// Reads the authenticated user's full cloud state and maps it into local domain
+// shapes. RLS scopes every query; the explicit user_id filter is defence in depth.
+export async function readCloudRestorePayload(user: User): Promise<CloudRestorePayload> {
+  const client = getSupabaseClient()
+  const [settingsRow, accounts, transactions, receivables, payables, commitments] = await Promise.all([
+    client.from('user_settings').select('settings,updated_at').eq('user_id', user.id).maybeSingle(),
+    client.from('finance_accounts').select('*').eq('user_id', user.id),
+    client.from('finance_transactions').select('*').eq('user_id', user.id),
+    client.from('receivables').select('*').eq('user_id', user.id),
+    client.from('payables').select('*').eq('user_id', user.id),
+    client.from('commitments').select('*').eq('user_id', user.id),
+  ])
+  for (const result of [settingsRow, accounts, transactions, receivables, payables, commitments]) {
+    if (result.error) throw result.error
+  }
+
+  const accountRows = liveRows(accounts.data)
+  const transactionRows = liveRows(transactions.data)
+  const receivableRows = liveRows(receivables.data)
+  const payableRows = liveRows(payables.data)
+  const commitmentRows = liveRows(commitments.data)
+
+  const financeState: FinanceState = {
+    version: 1,
+    migratedFromSettings: false,
+    accounts: accountRows.map((row) => ({
+      id: text(row.id),
+      name: text(row.name),
+      type: text(row.type) as FinanceState['accounts'][number]['type'],
+      ...optional(optionalText(row.institution_name), 'institutionName'),
+      ...optional(optionalText(row.last_four_digits), 'lastFourDigits'),
+      openingBalance: integer(row.opening_balance),
+      isDefault: flag(row.is_default),
+      isArchived: flag(row.is_archived),
+      createdAt: isoTimestamp(row.created_at),
+      updatedAt: isoTimestamp(row.updated_at),
+    })),
+    transactions: transactionRows.map((row) => ({
+      id: text(row.id),
+      type: text(row.type) as FinanceState['transactions'][number]['type'],
+      amount: integer(row.amount),
+      date: isoDate(row.date),
+      title: text(row.title),
+      categoryId: category(row.category_id),
+      accountId: text(row.account_id),
+      ...optional(optionalText(row.destination_account_id), 'destinationAccountId'),
+      ...optional(optionalText(row.person_or_business), 'personOrBusiness'),
+      ...optional(optionalText(row.note), 'note'),
+      status: text(row.status) as FinanceState['transactions'][number]['status'],
+      isLocal: true,
+      createdAt: isoTimestamp(row.created_at),
+      updatedAt: isoTimestamp(row.updated_at),
+    })),
+  }
+
+  const planningState: PlanningState = {
+    version: 1,
+    receivables: receivableRows.map((row) => ({
+      id: text(row.id),
+      counterparty: text(row.counterparty),
+      originalAmount: integer(row.original_amount),
+      receivedAmount: integer(row.received_amount),
+      dueDate: isoDate(row.due_date),
+      ...optional(optionalText(row.note), 'note'),
+      ...optional(optionalText(row.account_id), 'accountId'),
+      createdAt: isoTimestamp(row.created_at),
+      updatedAt: isoTimestamp(row.updated_at),
+    })),
+    payables: payableRows.map((row) => ({
+      id: text(row.id),
+      counterparty: text(row.counterparty),
+      originalAmount: integer(row.original_amount),
+      paidAmount: integer(row.paid_amount),
+      dueDate: isoDate(row.due_date),
+      ...optional(optionalText(row.note), 'note'),
+      ...optional(optionalText(row.account_id), 'accountId'),
+      createdAt: isoTimestamp(row.created_at),
+      updatedAt: isoTimestamp(row.updated_at),
+    })),
+    commitments: commitmentRows.map((row) => ({
+      id: text(row.id),
+      label: text(row.label),
+      category: category(row.category_id),
+      amount: integer(row.amount),
+      frequency: text(row.frequency) as PlanningState['commitments'][number]['frequency'],
+      dueDate: isoDate(row.due_date),
+      ...optional(optionalText(row.note), 'note'),
+      ...optional(optionalText(row.account_id), 'accountId'),
+      isSettled: flag(row.is_settled),
+      isArchived: flag(row.is_archived),
+      ...optional(optionalText(row.last_paid_date), 'lastPaidDate'),
+      createdAt: isoTimestamp(row.created_at),
+      updatedAt: isoTimestamp(row.updated_at),
+    })),
+  }
+
+  const storedSettings: unknown = settingsRow.data?.settings
+  const updatedAt = typeof settingsRow.data?.updated_at === 'string' ? settingsRow.data.updated_at : undefined
+
+  return {
+    settings: isUserSettings(storedSettings) ? storedSettings : undefined,
+    finance: financeState,
+    planning: planningState,
+    counts: {
+      accounts: financeState.accounts.length,
+      transactions: financeState.transactions.length,
+      receivables: planningState.receivables.length,
+      payables: planningState.payables.length,
+      commitments: planningState.commitments.length,
+    },
+    updatedAt,
+  }
 }

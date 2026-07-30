@@ -44,6 +44,7 @@ import {
   updateReceivable as updatePlanningReceivable,
   type PlanningContext,
 } from '../lib/planningCore'
+import { recoverInterruptedRestore } from '../lib/dataSafety'
 import type {
   CommitmentInput,
   PayableInput,
@@ -117,6 +118,8 @@ interface AppState {
   markReceivableReceivedIntoAccount: (id: string, accountId: AccountId) => string | undefined
   recordPayablePaymentFromAccount: (id: string, amount: number, accountId: AccountId) => string | undefined
   markPayablePaidFromAccount: (id: string, accountId: AccountId) => string | undefined
+  // Republishes state after a verified restore has already been persisted.
+  rehydrateFromStorage: () => void
 }
 
 function resolveTheme(preference: ThemePreference): Theme {
@@ -141,6 +144,10 @@ function applyTheme(theme: Theme): void {
 function persist(settings: UserSettings): void {
   saveSettings(settings)
 }
+
+// An interrupted restore is resolved before any state is read, so hydration can
+// never observe a mix of pre-restore and post-restore data across the keys.
+recoverInterruptedRestore()
 
 const { settings: initialSettings, origin: initialOrigin } = loadSettingsWithOrigin()
 const initialTheme = resolveTheme(initialSettings.appearance.themePreference)
@@ -634,6 +641,20 @@ export const useAppStore = create<AppState>((set, get) => {
 
       return commitBoth(planningResult.state, financeResult.state)
     }),
+  rehydrateFromStorage: () => {
+    const { settings, origin } = loadSettingsWithOrigin()
+    const finance = loadFinanceState(settings, origin)
+    const planning = loadPlanningState()
+    const resolved = resolveTheme(settings.appearance.themePreference)
+    applyTheme(resolved)
+    set({
+      settings,
+      finance,
+      planning,
+      theme: resolved,
+      privacyMode: settings.privacy.hideAmounts || settings.privacy.hideBalancesOnLaunch,
+    })
+  },
   }
 })
 

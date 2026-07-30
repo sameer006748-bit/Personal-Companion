@@ -32,7 +32,8 @@ import type {
   ReceivableRecord,
 } from '../models/planning'
 
-const STORAGE_KEY = 'personal-companion-planning'
+export const PLANNING_STORAGE_KEY = 'personal-companion-planning'
+const STORAGE_KEY = PLANNING_STORAGE_KEY
 const MAX_AMOUNT = 100000000
 const MAX_NOTE_LENGTH = 200
 const DUE_SOON_DAYS = 3
