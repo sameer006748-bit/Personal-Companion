@@ -189,6 +189,9 @@ export function NextCommitment({ data }: Pick<DataSectionProps, 'data'>) {
     return null
   }
 
+  const isOverdue = commitment.status === 'overdue'
+  const dueLabel = format(parseISO(commitment.dueDate), 'd MMM')
+
   return (
     <section className="next-commitment glass-surface" aria-labelledby="next-title">
       <div className="section-heading compact-heading">
@@ -196,13 +199,16 @@ export function NextCommitment({ data }: Pick<DataSectionProps, 'data'>) {
           <p className="eyebrow">Next commitment</p>
           <h2 id="next-title">{commitment.label}</h2>
         </div>
-        <span className="overdue-badge">Overdue</span>
+        {isOverdue ? <span className="overdue-badge">Overdue</span> : null}
       </div>
       <div className="commitment-details">
         <span className="commitment-icon">
           <CalendarClock aria-hidden="true" />
         </span>
-        <span>Overdue since {format(parseISO(commitment.dueDate), 'd MMM')}</span>
+        <span>
+          {isOverdue ? `Overdue since ${dueLabel}` : `Due ${dueLabel}`}
+          {commitment.accountLabel ? ` · ${commitment.accountLabel}` : ''}
+        </span>
         <PrivateAmount amount={commitment.amount} />
       </div>
     </section>

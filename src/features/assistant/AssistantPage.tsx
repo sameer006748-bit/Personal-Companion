@@ -40,9 +40,10 @@ export function AssistantPage() {
   const conversationEndRef = useRef<HTMLDivElement>(null)
   const settings = useAppStore((state) => state.settings)
   const finance = useAppStore((state) => state.finance)
+  const planning = useAppStore((state) => state.planning)
   const privacyMode = useAppStore((state) => state.privacyMode)
   const togglePrivacyMode = useAppStore((state) => state.togglePrivacyMode)
-  const data = useMemo(() => getLocalPersonalFinanceData(settings, finance), [settings, finance])
+  const data = useMemo(() => getLocalPersonalFinanceData(settings, finance, planning), [settings, finance, planning])
 
   useEffect(() => {
     conversationEndRef.current?.scrollIntoView({

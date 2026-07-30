@@ -1,5 +1,11 @@
 import { getAccountBalance, getActiveAccounts, type FinanceState } from '../lib/financeCore'
+import {
+  toPlanningCommitments,
+  toPlanningPayables,
+  toPlanningReceivables,
+} from '../lib/planningCore'
 import type { FinanceTransaction, PersonalFinanceData } from '../models/finance'
+import type { PlanningState } from '../models/planning'
 import type { UserSettings } from '../models/settings'
 
 export const personalFinanceData: PersonalFinanceData = {
@@ -564,11 +570,12 @@ function currentMonth(today: string): string {
   return today.slice(0, 7)
 }
 
-// Real user runtime. Reads only persisted local finance state; the seeded
-// fixture below is never merged in.
+// Real user runtime. Reads only persisted local finance and planning state; the
+// seeded fixture above is never merged in.
 export function getLocalPersonalFinanceData(
   settings: UserSettings,
   finance: FinanceState,
+  planning: PlanningState,
   today: string = new Date().toISOString().slice(0, 10),
 ): PersonalFinanceData {
   return {
@@ -586,9 +593,9 @@ export function getLocalPersonalFinanceData(
     receivables: [],
     payables: [],
     commitments: [],
-    planningReceivables: [],
-    planningPayables: [],
-    planningCommitments: [],
+    planningReceivables: toPlanningReceivables(planning, today),
+    planningPayables: toPlanningPayables(planning, today),
+    planningCommitments: toPlanningCommitments(planning, today),
     liquidityReserve: 0,
     previousMonthIncome: 0,
   }

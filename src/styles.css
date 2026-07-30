@@ -4229,3 +4229,40 @@ a {
 .finance-archived div { display:flex; align-items:center; justify-content:space-between; gap:.6rem; padding:.35rem 0; color:var(--ink-secondary); font-size:.68rem; }
 .finance-archived button { display:inline-flex; min-height:2.2rem; align-items:center; gap:.3rem; border:0; color:var(--accent-strong); font-size:.62rem; background:transparent; cursor:pointer; }
 .finance-archived svg { width:.75rem; height:.75rem; }
+
+/* Planning data core — interactive rows, header action, and item detail dialog. */
+.planning-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.planning-add-button { display: inline-flex; min-height: 2.75rem; align-items: center; gap: .35rem; padding: 0 .85rem; border-radius: .9rem; color: var(--accent-strong); font-size: .68rem; font-weight: 700; cursor: pointer; }
+.planning-add-button svg { width: .85rem; height: .85rem; stroke-width: 2.2; }
+
+.planning-open-trigger { width: 100%; padding: 0; border: 0; color: inherit; font: inherit; text-align: left; background: transparent; cursor: pointer; }
+.planning-open-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: .7rem; }
+
+.attention-list li + li > .attention-row { border-top: 1px solid var(--glass-border); }
+
+/* The row is now a stacking container; the trigger button carries the columns. */
+.planning-row { display: block; min-height: 0; grid-template-columns: none; }
+.planning-row-trigger { display: grid; min-height: 4.35rem; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .58rem; }
+.commitment-row .planning-row-trigger { grid-template-columns: minmax(0, 1fr) auto; }
+.commitment-row .planning-row-copy { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .55rem; }
+.planning-row > .planning-progress { margin-bottom: .5rem; }
+
+.planning-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: .55rem; margin: 0; }
+.planning-detail-grid dt { color: var(--ink-tertiary); font-size: .58rem; font-weight: 690; text-transform: uppercase; letter-spacing: .06em; }
+.planning-detail-grid dd { margin: .2rem 0 0; color: var(--ink); font-size: .74rem; font-weight: 680; }
+.planning-detail-note { margin: 0; padding: .55rem .65rem; border: 1px solid var(--glass-border); border-radius: .7rem; color: var(--ink-secondary); font-size: .66rem; line-height: 1.45; background: var(--glass-inset-bg); }
+.planning-detail-hint { margin: 0; color: var(--ink-tertiary); font-size: .61rem; line-height: 1.45; }
+
+.planning-detail-partial { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: .45rem; }
+.planning-detail-partial label { display: grid; gap: .25rem; color: var(--ink-secondary); font-size: .63rem; }
+.planning-detail-partial input { min-height: 2.75rem; padding: 0 .65rem; border: 1px solid var(--glass-border); border-radius: .72rem; color: var(--ink); background: var(--glass-inset-bg); }
+.planning-detail-partial button { min-height: 2.75rem; padding: 0 .8rem; border: 1px solid var(--glass-border); border-radius: .72rem; color: var(--accent-strong); font-size: .66rem; font-weight: 690; background: var(--glass-inset-bg); cursor: pointer; }
+
+.planning-detail-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+.planning-detail-actions button { min-height: 2.75rem; padding: 0 .8rem; border: 1px solid var(--glass-border); border-radius: .78rem; color: var(--ink-secondary); font-size: .66rem; font-weight: 680; background: var(--glass-inset-bg); cursor: pointer; }
+.planning-detail-actions button.is-destructive { border-color: color-mix(in srgb, var(--negative), transparent 55%); color: var(--negative); }
+
+@media (min-width: 768px) {
+  .planning-header { flex-direction: row; align-items: flex-start; justify-content: space-between; }
+  .planning-detail-actions button { min-width: 6rem; }
+}

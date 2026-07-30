@@ -114,11 +114,14 @@ export function PlanningSummarySurface({ summary }: PlanningSummaryProps) {
   )
 }
 
+export type PlanningItemSelect = (type: PlanningItemType, id: string) => void
+
 interface PlanningAttentionProps {
   items: readonly PlanningAttentionItem[]
+  onSelect: PlanningItemSelect
 }
 
-export function PlanningAttention({ items }: PlanningAttentionProps) {
+export function PlanningAttention({ items, onSelect }: PlanningAttentionProps) {
   if (items.length === 0) {
     return null
   }
@@ -141,28 +144,34 @@ export function PlanningAttention({ items }: PlanningAttentionProps) {
           const statusLabel = getPlanningStatusLabel(item.type, item.status)
 
           return (
-            <li key={`${item.type}-${item.id}`} className="attention-row">
-              <span className={`attention-type-icon type-${item.type}`}>
-                <Icon aria-hidden="true" />
-              </span>
-              <span className="attention-copy">
-                <strong>{item.title}</strong>
-                <small>
-                  {attentionTypeLabels[item.type]}
-                  {item.accountLabel ? ` · ${item.accountLabel}` : ''}
-                </small>
-              </span>
-              <span className="attention-meta">
-                <span className="attention-overdue">
-                  {item.overdueDays === 0
-                    ? 'Due today'
-                    : `${item.overdueDays}d overdue`}
+            <li key={`${item.type}-${item.id}`}>
+              <button
+                type="button"
+                className="attention-row planning-open-trigger"
+                onClick={() => onSelect(item.type, item.id)}
+              >
+                <span className={`attention-type-icon type-${item.type}`}>
+                  <Icon aria-hidden="true" />
                 </span>
-                <span className={`planning-status status-${item.status}`}>
-                  {statusLabel}
+                <span className="attention-copy">
+                  <strong>{item.title}</strong>
+                  <small>
+                    {attentionTypeLabels[item.type]}
+                    {item.accountLabel ? ` · ${item.accountLabel}` : ''}
+                  </small>
                 </span>
-                <PrivateAmount amount={item.amount} />
-              </span>
+                <span className="attention-meta">
+                  <span className="attention-overdue">
+                    {item.overdueDays === 0
+                      ? 'Due today'
+                      : `${item.overdueDays}d overdue`}
+                  </span>
+                  <span className={`planning-status status-${item.status}`}>
+                    {statusLabel}
+                  </span>
+                  <PrivateAmount amount={item.amount} />
+                </span>
+              </button>
             </li>
           )
         })}
@@ -173,9 +182,13 @@ export function PlanningAttention({ items }: PlanningAttentionProps) {
 
 interface PlanningReceivablesProps {
   receivables: readonly PlanningReceivableView[]
+  onSelect: PlanningItemSelect
 }
 
-export function PlanningReceivablesSection({ receivables }: PlanningReceivablesProps) {
+export function PlanningReceivablesSection({
+  receivables,
+  onSelect,
+}: PlanningReceivablesProps) {
   if (receivables.length === 0) {
     return null
   }
@@ -195,28 +208,34 @@ export function PlanningReceivablesSection({ receivables }: PlanningReceivablesP
       <ul className="planning-list">
         {receivables.map((item) => (
           <li key={item.id} className="planning-row">
-            <span className="planning-row-copy">
-              <strong>{item.counterparty}</strong>
-              <small>
-                <time dateTime={item.dueDate}>
-                  {format(parseISO(item.dueDate), 'd MMM yyyy')}
-                </time>
-                {item.note ? ` · ${item.note}` : ''}
-              </small>
-            </span>
-            <span className="planning-row-amounts">
-              <span className="planning-row-remaining">
-                <small>Remaining</small>
-                <PrivateAmount amount={item.remainingAmount} />
+            <button
+              type="button"
+              className="planning-row-trigger planning-open-trigger"
+              onClick={() => onSelect('receivable', item.id)}
+            >
+              <span className="planning-row-copy">
+                <strong>{item.counterparty}</strong>
+                <small>
+                  <time dateTime={item.dueDate}>
+                    {format(parseISO(item.dueDate), 'd MMM yyyy')}
+                  </time>
+                  {item.note ? ` · ${item.note}` : ''}
+                </small>
               </span>
-              <span className="planning-row-original">
-                <small>of</small>
-                <PrivateAmount amount={item.originalAmount} />
+              <span className="planning-row-amounts">
+                <span className="planning-row-remaining">
+                  <small>Remaining</small>
+                  <PrivateAmount amount={item.remainingAmount} />
+                </span>
+                <span className="planning-row-original">
+                  <small>of</small>
+                  <PrivateAmount amount={item.originalAmount} />
+                </span>
+                <span className={`planning-status status-${item.status}`}>
+                  {getPlanningStatusLabel('receivable', item.status)}
+                </span>
               </span>
-              <span className={`planning-status status-${item.status}`}>
-                {getPlanningStatusLabel('receivable', item.status)}
-              </span>
-            </span>
+            </button>
             {item.progress > 0 && item.progress < 100 && (
               <span
                 className="planning-progress"
@@ -235,9 +254,13 @@ export function PlanningReceivablesSection({ receivables }: PlanningReceivablesP
 
 interface PlanningPayablesProps {
   payables: readonly PlanningPayableView[]
+  onSelect: PlanningItemSelect
 }
 
-export function PlanningPayablesSection({ payables }: PlanningPayablesProps) {
+export function PlanningPayablesSection({
+  payables,
+  onSelect,
+}: PlanningPayablesProps) {
   if (payables.length === 0) {
     return null
   }
@@ -257,28 +280,34 @@ export function PlanningPayablesSection({ payables }: PlanningPayablesProps) {
       <ul className="planning-list">
         {payables.map((item) => (
           <li key={item.id} className="planning-row">
-            <span className="planning-row-copy">
-              <strong>{item.counterparty}</strong>
-              <small>
-                <time dateTime={item.dueDate}>
-                  {format(parseISO(item.dueDate), 'd MMM yyyy')}
-                </time>
-                {item.note ? ` · ${item.note}` : ''}
-              </small>
-            </span>
-            <span className="planning-row-amounts">
-              <span className="planning-row-remaining">
-                <small>Remaining</small>
-                <PrivateAmount amount={item.remainingAmount} />
+            <button
+              type="button"
+              className="planning-row-trigger planning-open-trigger"
+              onClick={() => onSelect('payable', item.id)}
+            >
+              <span className="planning-row-copy">
+                <strong>{item.counterparty}</strong>
+                <small>
+                  <time dateTime={item.dueDate}>
+                    {format(parseISO(item.dueDate), 'd MMM yyyy')}
+                  </time>
+                  {item.note ? ` · ${item.note}` : ''}
+                </small>
               </span>
-              <span className="planning-row-original">
-                <small>of</small>
-                <PrivateAmount amount={item.originalAmount} />
+              <span className="planning-row-amounts">
+                <span className="planning-row-remaining">
+                  <small>Remaining</small>
+                  <PrivateAmount amount={item.remainingAmount} />
+                </span>
+                <span className="planning-row-original">
+                  <small>of</small>
+                  <PrivateAmount amount={item.originalAmount} />
+                </span>
+                <span className={`planning-status status-${item.status}`}>
+                  {getPlanningStatusLabel('payable', item.status)}
+                </span>
               </span>
-              <span className={`planning-status status-${item.status}`}>
-                {getPlanningStatusLabel('payable', item.status)}
-              </span>
-            </span>
+            </button>
             {item.progress > 0 && item.progress < 100 && (
               <span
                 className="planning-progress"
@@ -297,10 +326,12 @@ export function PlanningPayablesSection({ payables }: PlanningPayablesProps) {
 
 interface PlanningCommitmentsProps {
   commitments: readonly PlanningCommitmentView[]
+  onSelect: PlanningItemSelect
 }
 
 export function PlanningCommitmentsSection({
   commitments,
+  onSelect,
 }: PlanningCommitmentsProps) {
   if (commitments.length === 0) {
     return null
@@ -324,28 +355,34 @@ export function PlanningCommitmentsSection({
 
           return (
             <li key={item.id} className="planning-row commitment-row">
-              <span className="planning-row-copy">
-                <span className="commitment-category-icon">
-                  <Icon aria-hidden="true" />
+              <button
+                type="button"
+                className="planning-row-trigger planning-open-trigger"
+                onClick={() => onSelect('commitment', item.id)}
+              >
+                <span className="planning-row-copy">
+                  <span className="commitment-category-icon">
+                    <Icon aria-hidden="true" />
+                  </span>
+                  <span>
+                    <strong>{item.label}</strong>
+                    <small>
+                      {item.frequency}
+                      {item.accountLabel ? ` · ${item.accountLabel}` : ''}
+                      {' · '}
+                      <time dateTime={item.dueDate}>
+                        {format(parseISO(item.dueDate), 'd MMM yyyy')}
+                      </time>
+                    </small>
+                  </span>
                 </span>
-                <span>
-                  <strong>{item.label}</strong>
-                  <small>
-                    {item.frequency}
-                    {item.accountLabel ? ` · ${item.accountLabel}` : ''}
-                    {' · '}
-                    <time dateTime={item.dueDate}>
-                      {format(parseISO(item.dueDate), 'd MMM yyyy')}
-                    </time>
-                  </small>
+                <span className="planning-row-amounts">
+                  <PrivateAmount amount={item.amount} />
+                  <span className={`planning-status status-${item.status}`}>
+                    {getPlanningStatusLabel('commitment', item.status)}
+                  </span>
                 </span>
-              </span>
-              <span className="planning-row-amounts">
-                <PrivateAmount amount={item.amount} />
-                <span className={`planning-status status-${item.status}`}>
-                  {getPlanningStatusLabel('commitment', item.status)}
-                </span>
-              </span>
+              </button>
             </li>
           )
         })}
@@ -376,14 +413,21 @@ export function PlanningEmptyState({
 
 interface PlanningContentProps {
   items: PlanningItems
+  onSelect: PlanningItemSelect
 }
 
-export function PlanningContent({ items }: PlanningContentProps) {
+export function PlanningContent({ items, onSelect }: PlanningContentProps) {
   return (
     <div className="planning-content">
-      <PlanningReceivablesSection receivables={items.receivables} />
-      <PlanningPayablesSection payables={items.payables} />
-      <PlanningCommitmentsSection commitments={items.commitments} />
+      <PlanningReceivablesSection
+        receivables={items.receivables}
+        onSelect={onSelect}
+      />
+      <PlanningPayablesSection payables={items.payables} onSelect={onSelect} />
+      <PlanningCommitmentsSection
+        commitments={items.commitments}
+        onSelect={onSelect}
+      />
     </div>
   )
 }

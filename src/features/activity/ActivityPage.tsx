@@ -35,7 +35,8 @@ export function ActivityPage() {
   const [selectedTransaction, setSelectedTransaction] = useState<FinanceTransaction | null>(null)
   const settings = useAppStore((state) => state.settings)
   const finance = useAppStore((state) => state.finance)
-  const data = useMemo(() => getLocalPersonalFinanceData(settings, finance), [settings, finance])
+  const planning = useAppStore((state) => state.planning)
+  const data = useMemo(() => getLocalPersonalFinanceData(settings, finance, planning), [settings, finance, planning])
   const activitySummary = useMemo(() => getActivitySummary(data), [data])
   const activityGroups = useMemo(
     () => getActivityTimelineGroups(data, { filter, sort: 'newest', search }),

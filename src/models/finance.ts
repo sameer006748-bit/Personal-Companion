@@ -166,7 +166,12 @@ export interface PlanningPayable {
   note?: string
 }
 
-export type CommitmentFrequency = 'monthly' | 'weekly' | 'yearly'
+export type CommitmentFrequency =
+  | 'weekly'
+  | 'monthly'
+  | 'quarterly'
+  | 'yearly'
+  | 'one-time'
 
 export interface PlanningCommitment {
   id: string

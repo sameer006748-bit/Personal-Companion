@@ -10,7 +10,6 @@ import {
 import type {
   Account,
   AccountId,
-  Commitment,
   FinanceTransaction,
   FinancialPosition,
   PayableStatus,
@@ -22,6 +21,7 @@ import type {
   ReceivableStatus,
   TransactionCategory,
 } from '../models/finance'
+import { PLANNING_FREQUENCY_LABELS } from '../models/planning'
 
 export interface HomeSummary {
   totalAvailable: number
@@ -133,18 +133,15 @@ export function getLargestExpenseDrivers(
 }
 
 export function getOutstandingReceivables(data: PersonalFinanceData): number {
-  return sumAmounts(data.receivables, (item) => item.remainingAmount)
+  return getOutstandingPlanningReceivables(data)
 }
 
 export function getOutstandingPayables(data: PersonalFinanceData): number {
-  return sumAmounts(data.payables, (item) => item.remainingAmount)
+  return getOutstandingPlanningPayables(data)
 }
 
 export function getRemainingCommitments(data: PersonalFinanceData): number {
-  return sumAmounts(
-    data.commitments.filter((commitment) => commitment.status !== 'paid'),
-    (commitment) => commitment.amount,
-  )
+  return getUpcomingCommitmentsTotal(data)
 }
 
 export function getSafeToSpend(data: PersonalFinanceData): number {
@@ -176,12 +173,34 @@ export function getRecentTransactions(
     .slice(0, limit)
 }
 
+export interface NextCommitmentView {
+  id: string
+  label: string
+  amount: number
+  dueDate: string
+  status: PlanningCommitmentStatus
+  accountLabel?: string | undefined
+}
+
 export function getNextCommitment(
   data: PersonalFinanceData,
-): Commitment | undefined {
-  return data.commitments
-    .filter((commitment) => commitment.status !== 'paid')
+): NextCommitmentView | undefined {
+  const next = [...data.planningCommitments]
+    .filter((commitment) => isCommitmentOutstanding(commitment.status))
     .sort((first, second) => first.dueDate.localeCompare(second.dueDate))[0]
+
+  if (!next) {
+    return undefined
+  }
+
+  return {
+    id: next.id,
+    label: next.label,
+    amount: next.amount,
+    dueDate: next.dueDate,
+    status: next.status,
+    accountLabel: getAccountLabel(data, next.accountId),
+  }
 }
 
 export function getAccountShare(account: Account, totalAvailable: number): number {
@@ -452,11 +471,8 @@ const commitmentStatusLabels: Record<PlanningCommitmentStatus, string> = {
   overdue: 'Overdue',
 }
 
-const frequencyLabels: Record<PlanningCommitment['frequency'], string> = {
-  monthly: 'Monthly',
-  weekly: 'Weekly',
-  yearly: 'Yearly',
-}
+const frequencyLabels: Record<PlanningCommitment['frequency'], string> =
+  PLANNING_FREQUENCY_LABELS
 
 export function getPlanningStatusLabel(
   type: PlanningItemType,

@@ -61,12 +61,13 @@ export function HomePage() {
   const [addingTransaction, setAddingTransaction] = useState(false)
   const settings = useAppStore((state) => state.settings)
   const finance = useAppStore((state) => state.finance)
+  const planning = useAppStore((state) => state.planning)
   const privacyMode = useAppStore((state) => state.privacyMode)
   const theme = useAppStore((state) => state.theme)
   const togglePrivacyMode = useAppStore((state) => state.togglePrivacyMode)
   const toggleTheme = useAppStore((state) => state.toggleTheme)
   const dateLabel = format(new Date(), 'EEEE, d MMMM')
-  const data = useMemo(() => getLocalPersonalFinanceData(settings, finance), [settings, finance])
+  const data = useMemo(() => getLocalPersonalFinanceData(settings, finance, planning), [settings, finance, planning])
   const homeSummary = useMemo(() => getHomeSummary(data), [data])
 
   return (
