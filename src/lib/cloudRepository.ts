@@ -2,6 +2,7 @@ import type { User } from '@supabase/supabase-js'
 
 import { ALL_CATEGORIES, type TransactionCategory } from '../models/finance'
 import type { FinanceState } from './financeCore'
+import type { SyncRecord, SyncRecordType } from './syncEngine'
 import type { PlanningState } from '../models/planning'
 import type { UserSettings } from '../models/settings'
 import { isUserSettings } from '../models/settings'
@@ -348,4 +349,155 @@ export async function readCloudRestorePayload(user: User): Promise<CloudRestoreP
     },
     updatedAt,
   }
+}
+
+// --- Sync transport ----------------------------------------------------------
+
+const TABLES: Readonly<Record<SyncRecordType, string>> = {
+  account: 'finance_accounts',
+  transaction: 'finance_transactions',
+  receivable: 'receivables',
+  payable: 'payables',
+  commitment: 'commitments',
+}
+
+function toRow(
+  user: User,
+  recordType: SyncRecordType,
+  record: Record<string, unknown>,
+): Record<string, unknown> {
+  const base = { user_id: user.id, id: record.id, deleted_at: null }
+  if (recordType === 'account') {
+    return {
+      ...base, name: record.name, type: record.type,
+      institution_name: record.institutionName ?? null, last_four_digits: record.lastFourDigits ?? null,
+      opening_balance: record.openingBalance, is_default: record.isDefault, is_archived: record.isArchived,
+      created_at: timestamp(String(record.createdAt)), updated_at: timestamp(String(record.updatedAt)),
+    }
+  }
+  if (recordType === 'transaction') {
+    return {
+      ...base, type: record.type, amount: record.amount, date: record.date, title: record.title,
+      category_id: record.categoryId, account_id: record.accountId,
+      destination_account_id: record.destinationAccountId ?? null,
+      person_or_business: record.personOrBusiness ?? null, note: record.note ?? null, status: record.status,
+      created_at: timestamp(String(record.createdAt)), updated_at: timestamp(String(record.updatedAt)),
+    }
+  }
+  if (recordType === 'receivable') {
+    return {
+      ...base, counterparty: record.counterparty, original_amount: record.originalAmount,
+      received_amount: record.receivedAmount, due_date: record.dueDate, note: record.note ?? null,
+      account_id: record.accountId ?? null,
+      created_at: timestamp(String(record.createdAt)), updated_at: timestamp(String(record.updatedAt)),
+    }
+  }
+  if (recordType === 'payable') {
+    return {
+      ...base, counterparty: record.counterparty, original_amount: record.originalAmount,
+      paid_amount: record.paidAmount, due_date: record.dueDate, note: record.note ?? null,
+      account_id: record.accountId ?? null,
+      created_at: timestamp(String(record.createdAt)), updated_at: timestamp(String(record.updatedAt)),
+    }
+  }
+  return {
+    ...base, label: record.label, category_id: record.category, amount: record.amount,
+    frequency: record.frequency, due_date: record.dueDate, note: record.note ?? null,
+    account_id: record.accountId ?? null, is_settled: record.isSettled, is_archived: record.isArchived,
+    last_paid_date: record.lastPaidDate ?? null,
+    created_at: timestamp(String(record.createdAt)), updated_at: timestamp(String(record.updatedAt)),
+  }
+}
+
+// Upserts on (user_id,id) so replaying the same operation converges to one row.
+export async function pushRecords(
+  user: User,
+  recordType: SyncRecordType,
+  records: readonly Record<string, unknown>[],
+): Promise<void> {
+  if (!records.length) return
+  const { error } = await getSupabaseClient()
+    .from(TABLES[recordType])
+    .upsert(records.map((record) => toRow(user, recordType, record)), { onConflict: 'user_id,id' })
+  if (error) throw error
+}
+
+// Deletion is a tombstone, never a row removal, so other devices can observe it.
+export async function tombstoneRecords(
+  user: User,
+  recordType: SyncRecordType,
+  recordIds: readonly string[],
+): Promise<void> {
+  if (!recordIds.length) return
+  const stamp = new Date().toISOString()
+  const { error } = await getSupabaseClient()
+    .from(TABLES[recordType])
+    .update({ deleted_at: stamp, updated_at: stamp })
+    .eq('user_id', user.id)
+    .in('id', recordIds)
+  if (error) throw error
+}
+
+export interface CloudSyncRead {
+  records: Record<SyncRecordType, readonly SyncRecord[]>
+  deletedKeys: string[]
+}
+
+// Reads live rows plus tombstone keys. Cloud `updated_at` is the revision used
+// for conflict detection, so it is preserved verbatim on each record.
+export async function readCloudForSync(user: User): Promise<CloudSyncRead> {
+  const payload = await readCloudRestorePayload(user)
+  const client = getSupabaseClient()
+
+  const deletedKeys: string[] = []
+  await Promise.all(
+    (Object.keys(TABLES) as SyncRecordType[]).map(async (recordType) => {
+      const { data, error } = await client
+        .from(TABLES[recordType])
+        .select('id')
+        .eq('user_id', user.id)
+        .not('deleted_at', 'is', null)
+      if (error) throw error
+      for (const row of assertRows(data)) {
+        if (typeof row.id === 'string') deletedKeys.push(`${recordType}:${row.id}`)
+      }
+    }),
+  )
+
+  return {
+    records: {
+      account: payload.finance.accounts as unknown as readonly SyncRecord[],
+      transaction: payload.finance.transactions as unknown as readonly SyncRecord[],
+      receivable: payload.planning.receivables as unknown as readonly SyncRecord[],
+      payable: payload.planning.payables as unknown as readonly SyncRecord[],
+      commitment: payload.planning.commitments as unknown as readonly SyncRecord[],
+    },
+    deletedKeys,
+  }
+}
+
+// Confirms a pushed record is actually present and untombstoned in the cloud.
+export async function verifyPushed(
+  user: User,
+  recordType: SyncRecordType,
+  recordIds: readonly string[],
+): Promise<boolean> {
+  if (!recordIds.length) return true
+  const { data, error } = await getSupabaseClient()
+    .from(TABLES[recordType])
+    .select('id,deleted_at')
+    .eq('user_id', user.id)
+    .in('id', recordIds)
+  if (error) throw error
+  const live = new Set(
+    assertRows(data)
+      .filter((row) => row.deleted_at === null || row.deleted_at === undefined)
+      .map((row) => String(row.id)),
+  )
+  return recordIds.every((id) => live.has(id))
+}
+
+export async function pushSettings(user: User, settings: UserSettings): Promise<void> {
+  await upsertProfile(user, settings)
+  await upsertSettings(user, settings)
 }

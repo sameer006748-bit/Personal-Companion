@@ -4,6 +4,7 @@ import { CURRENCY_CODE, type CurrencyCode } from '../models/currency'
 import type { AccountId } from '../models/finance'
 import {
   archiveAccount as archiveFinanceAccount,
+  checkFinanceConsistency,
   createAccount as createFinanceAccount,
   createTransaction as createFinanceTransaction,
   getAccountBalance,
@@ -45,6 +46,7 @@ import {
   type PlanningContext,
 } from '../lib/planningCore'
 import { recoverInterruptedRestore } from '../lib/dataSafety'
+import type { SyncRecord, SyncRecordType } from '../lib/syncEngine'
 import type {
   CommitmentInput,
   PayableInput,
@@ -120,6 +122,11 @@ interface AppState {
   markPayablePaidFromAccount: (id: string, accountId: AccountId) => string | undefined
   // Republishes state after a verified restore has already been persisted.
   rehydrateFromStorage: () => void
+  // Merges cloud-only changes and cloud tombstones decided by the sync planner.
+  applySyncPull: (
+    pulls: readonly { recordType: SyncRecordType; record: SyncRecord }[],
+    deletes: readonly { recordType: SyncRecordType; recordId: string }[],
+  ) => void
 }
 
 function resolveTheme(preference: ThemePreference): Theme {
@@ -654,6 +661,51 @@ export const useAppStore = create<AppState>((set, get) => {
       theme: resolved,
       privacyMode: settings.privacy.hideAmounts || settings.privacy.hideBalancesOnLaunch,
     })
+  },
+  applySyncPull: (pulls, deletes) => {
+    const state = get()
+    let accounts = [...state.finance.accounts]
+    let transactions = [...state.finance.transactions]
+    let receivables = [...state.planning.receivables]
+    let payables = [...state.planning.payables]
+    let commitments = [...state.planning.commitments]
+
+    // Cloud rows arrive already mapped and validated by the repository reader.
+    const upsert = <T extends { id: string }>(list: T[], record: unknown): T[] => {
+      const incoming = record as T
+      const index = list.findIndex((item) => item.id === incoming.id)
+      if (index === -1) return [...list, incoming]
+      const next = [...list]
+      next[index] = incoming
+      return next
+    }
+
+    for (const { recordType, record } of pulls) {
+      if (recordType === 'account') accounts = upsert(accounts, record)
+      else if (recordType === 'transaction') transactions = upsert(transactions, record)
+      else if (recordType === 'receivable') receivables = upsert(receivables, record)
+      else if (recordType === 'payable') payables = upsert(payables, record)
+      else commitments = upsert(commitments, record)
+    }
+
+    for (const { recordType, recordId } of deletes) {
+      if (recordType === 'account') accounts = accounts.filter((item) => item.id !== recordId)
+      else if (recordType === 'transaction') transactions = transactions.filter((item) => item.id !== recordId)
+      else if (recordType === 'receivable') receivables = receivables.filter((item) => item.id !== recordId)
+      else if (recordType === 'payable') payables = payables.filter((item) => item.id !== recordId)
+      else commitments = commitments.filter((item) => item.id !== recordId)
+    }
+
+    const finance: FinanceState = { ...state.finance, accounts, transactions }
+    const planning: PlanningState = { ...state.planning, receivables, payables, commitments }
+
+    // A pull that would break domain invariants is refused outright rather than
+    // publishing inconsistent financial state.
+    if (!checkFinanceConsistency(finance).ok) return
+
+    saveFinanceState(finance)
+    savePlanningState(planning)
+    set({ finance, planning })
   },
   }
 })
