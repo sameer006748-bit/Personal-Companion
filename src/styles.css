@@ -4338,3 +4338,31 @@ a {
   .conflict-actions { display: grid; grid-template-columns: 1fr; }
   .conflict-actions button, .conflict-later { width: 100%; justify-content: center; }
 }
+
+/* Assistant AI status and consent disclosure */
+.assistant-source-note {
+  min-height: 1.25rem;
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted, rgb(120 120 130));
+}
+
+.assistant-ai-disclosure {
+  padding: 0.75rem 0 0.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-muted, rgb(120 120 130));
+}
+
+.assistant-ai-disclosure p {
+  margin: 0 0 0.35rem;
+}
+
+.assistant-ai-disclosure ul {
+  margin: 0 0 0.5rem;
+  padding-inline-start: 1.1rem;
+}
+
+.assistant-ai-disclosure li {
+  margin-bottom: 0.2rem;
+}

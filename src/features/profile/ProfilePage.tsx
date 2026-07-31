@@ -19,6 +19,7 @@ import {
   type ThemePreference,
 } from '../../models/settings'
 import { useAppStore } from '../../store/appStore'
+import { AI_DATA_DISCLOSURE, isAiAssistantEnabled, setAiAssistantEnabled } from '../../lib/assistantClient'
 import { getActiveAccounts } from '../../lib/financeCore'
 import { AccountManagement } from '../finance/AccountManagement'
 import { CloudSyncSection } from './CloudSyncSection'
@@ -74,6 +75,7 @@ export function ProfilePage() {
   const setAssistantSuggestions = useAppStore((state) => state.setAssistantSuggestions)
   const restartOnboarding = useAppStore((state) => state.restartOnboarding)
 
+  const [aiEnabled, setAiEnabled] = useState(() => isAiAssistantEnabled())
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState(settings.profile.fullName)
   const [editInitials, setEditInitials] = useState(settings.profile.initials)
@@ -248,6 +250,12 @@ export function ProfilePage() {
         <ToggleRow label="Include financial calculations" description="Shows detailed numbers in Assistant responses." checked={settings.assistant.includeCalculations} onChange={(checked) => { setAssistantCalculations(checked); showSaved('Preferences saved') }} />
         <ToggleRow label="Show suggested questions" checked={settings.assistant.showSuggestions} onChange={(checked) => { setAssistantSuggestions(checked); showSaved('Preferences saved') }} />
         <SettingRow label="Language style" locked>Professional English</SettingRow>
+        <ToggleRow label="Use the AI assistant" description="Off by default. When off, answers are written on this device only." checked={aiEnabled} onChange={(checked) => { setAiAssistantEnabled(checked); setAiEnabled(checked); showSaved(checked ? 'AI assistant enabled' : 'AI assistant disabled') }} />
+        <div className="assistant-ai-disclosure">
+          <p>Turning this on sends, for each question:</p>
+          <ul>{AI_DATA_DISCLOSURE.map((line) => <li key={line}>{line}</li>)}</ul>
+          <p>Amounts always come from this device, never from the AI. This choice applies to this device only.</p>
+        </div>
       </SettingsSection>
 
       <SettingsSection title="Data and security" id="data-security">

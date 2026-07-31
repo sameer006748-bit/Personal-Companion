@@ -7,7 +7,7 @@ import {
   AssistantMessageList,
   AssistantSuggestions,
 } from './AssistantComponents'
-import { generateAssistantResponse } from '../../lib/assistantEngine'
+import { ASSISTANT_FALLBACK_MESSAGES, askAssistant } from '../../lib/assistantClient'
 import type { AssistantMessage } from '../../models/assistant'
 import { getLocalPersonalFinanceData } from '../../mocks/finance'
 import { useAppStore } from '../../store/appStore'
@@ -36,6 +36,8 @@ export function AssistantPage() {
       timestamp: Date.now(),
     },
   ])
+  const [isThinking, setIsThinking] = useState(false)
+  const [sourceNote, setSourceNote] = useState('')
   const messageCount = useRef(0)
   const conversationEndRef = useRef<HTMLDivElement>(null)
   const settings = useAppStore((state) => state.settings)
@@ -54,35 +56,47 @@ export function AssistantPage() {
     })
   }, [messages])
 
-  function submitQuestion(question = draft) {
+  async function submitQuestion(question = draft) {
     const trimmedQuestion = question.trim()
 
-    if (!trimmedQuestion) {
+    if (!trimmedQuestion || isThinking) {
       return
     }
 
     const timestamp = Date.now()
-    const response = generateAssistantResponse(trimmedQuestion, data)
     messageCount.current += 1
+    const turn = messageCount.current
 
     setMessages((currentMessages) => [
       ...currentMessages,
       {
-        id: `user-${timestamp}-${messageCount.current}`,
+        id: `user-${timestamp}-${turn}`,
         role: 'user',
         text: trimmedQuestion,
         timestamp,
       },
+    ])
+    setDraft('')
+    setIsThinking(true)
+
+    // askAssistant always resolves: if the model is unavailable, rate limited, or
+    // returns anything off-contract, it returns the local deterministic answer.
+    const outcome = await askAssistant(trimmedQuestion, data, settings.finance.currency)
+    const { response } = outcome
+
+    setMessages((currentMessages) => [
+      ...currentMessages,
       {
-        id: `assistant-${timestamp}-${messageCount.current}`,
+        id: `assistant-${timestamp}-${turn}`,
         role: 'assistant',
         text: response.text,
-        timestamp,
+        timestamp: Date.now(),
         ...(response.insight ? { insight: response.insight } : {}),
         ...(response.followUps ? { followUps: response.followUps } : {}),
       },
     ])
-    setDraft('')
+    setSourceNote(outcome.reason ? ASSISTANT_FALLBACK_MESSAGES[outcome.reason] : 'Answered with AI')
+    setIsThinking(false)
   }
 
   return (
@@ -106,13 +120,16 @@ export function AssistantPage() {
       </header>
 
       <AssistantIntro greeting={getGreeting()} name={data.profile.name} />
-      <AssistantSuggestions onSelect={submitQuestion} />
+      <AssistantSuggestions onSelect={(question) => void submitQuestion(question)} />
       <AssistantMessageList
         messages={messages}
-        onFollowUp={submitQuestion}
+        onFollowUp={(question) => void submitQuestion(question)}
         endRef={conversationEndRef}
       />
-      <AssistantComposer value={draft} onChange={setDraft} onSubmit={() => submitQuestion()} />
+      <p className="assistant-source-note" role="status" aria-live="polite">
+        {isThinking ? 'Thinking' : sourceNote}
+      </p>
+      <AssistantComposer value={draft} onChange={setDraft} onSubmit={() => void submitQuestion()} />
     </div>
   )
 }

@@ -6,7 +6,9 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   {
-    ignores: ['dist', 'coverage', 'graphify-out'],
+    // Edge Functions are Deno modules with their own runtime and globals; they are
+    // not part of the browser app's TypeScript project.
+    ignores: ['dist', 'coverage', 'graphify-out', 'supabase/functions'],
   },
   {
     files: ['**/*.{ts,tsx}'],
