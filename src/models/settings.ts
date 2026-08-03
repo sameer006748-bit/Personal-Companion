@@ -1,4 +1,5 @@
 import type { AccountId, AccountType } from './finance'
+import type { AssistantPersonalizationProfile } from './assistant'
 
 export type ThemePreference = 'system' | 'light' | 'dark'
 
@@ -42,6 +43,10 @@ export interface AssistantSettings {
   includeCalculations: boolean
   showSuggestions: boolean
   languageStyle: string
+  personalizationEnabled: boolean
+  memoryEnabled: boolean
+  personalization: AssistantPersonalizationProfile
+  ownerId?: string
 }
 
 export interface OnboardingDraft {
@@ -84,19 +89,50 @@ export interface UserSettings {
   onboarding: OnboardingSettings
 }
 
+interface LegacyAssistantSettings {
+  responseStyle: AssistantResponseStyle
+  includeCalculations: boolean
+  showSuggestions: boolean
+  languageStyle: string
+}
+
 interface LegacyUserSettings {
   version: number
   profile: ProfileSettings
   appearance: AppearanceSettings
   privacy: PrivacySettings
   finance: Omit<FinanceSettings, 'accountBalances'>
-  assistant: AssistantSettings
+  assistant: LegacyAssistantSettings
+  onboarding?: OnboardingSettings
 }
 
 export const SETTINGS_STORAGE_KEY = 'personal-companion-settings'
 const STORAGE_KEY = SETTINGS_STORAGE_KEY
-const CURRENT_VERSION = 2
+const CURRENT_VERSION = 3
 const ONBOARDING_VERSION = 1
+
+export const PERSONALIZATION_LIMITS = {
+  preferredName: 60,
+  aboutMe: 600,
+  financialPriorities: 400,
+  goalsAndPlans: 500,
+  advicePreferences: 400,
+  thingsToAvoid: 300,
+} as const
+
+export const DEFAULT_ASSISTANT_PERSONALIZATION: AssistantPersonalizationProfile = {
+  aboutMe: '',
+  language: 'english',
+  responseLength: 'balanced',
+  tone: 'friendly',
+  financialCoaching: 'balanced',
+  riskTolerance: 'moderate',
+  financialPriorities: '',
+  goalsAndPlans: '',
+  advicePreferences: '',
+  thingsToAvoid: '',
+  proactiveSuggestions: false,
+}
 
 const defaultAccountBalances: AccountBalances = {
   cash: 0,
@@ -159,8 +195,8 @@ const accountDrafts: readonly OnboardingAccountDraft[] = activeAccounts.length >
 const defaultSettings: UserSettings = {
   version: CURRENT_VERSION,
   profile: {
-    fullName: 'Sameer',
-    initials: 'SK',
+    fullName: 'New user',
+    initials: 'NU',
     incomeType: 'variable',
     defaultAccountId: 'cash',
   },
@@ -182,6 +218,9 @@ const defaultSettings: UserSettings = {
     includeCalculations: true,
     showSuggestions: true,
     languageStyle: 'professional',
+    personalizationEnabled: true,
+    memoryEnabled: true,
+    personalization: { ...DEFAULT_ASSISTANT_PERSONALIZATION },
   },
   onboarding: {
     version: ONBOARDING_VERSION,
@@ -222,6 +261,26 @@ function isBalances(value: unknown): value is AccountBalances {
   })
 }
 
+function isBoundedString(value: unknown, limit: number): value is string {
+  return typeof value === 'string' && value.length <= limit
+}
+
+function isAssistantPersonalization(value: unknown): value is AssistantPersonalizationProfile {
+  if (!isObject(value)) return false
+  return (value.preferredName === undefined || isBoundedString(value.preferredName, PERSONALIZATION_LIMITS.preferredName)) &&
+    isBoundedString(value.aboutMe, PERSONALIZATION_LIMITS.aboutMe) &&
+    (value.language === 'english' || value.language === 'roman-urdu') &&
+    (value.responseLength === 'short' || value.responseLength === 'balanced' || value.responseLength === 'detailed') &&
+    (value.tone === 'friendly' || value.tone === 'direct' || value.tone === 'gentle' || value.tone === 'strict') &&
+    (value.financialCoaching === 'conservative' || value.financialCoaching === 'balanced' || value.financialCoaching === 'growth-oriented') &&
+    (value.riskTolerance === 'low' || value.riskTolerance === 'moderate' || value.riskTolerance === 'high') &&
+    isBoundedString(value.financialPriorities, PERSONALIZATION_LIMITS.financialPriorities) &&
+    isBoundedString(value.goalsAndPlans, PERSONALIZATION_LIMITS.goalsAndPlans) &&
+    isBoundedString(value.advicePreferences, PERSONALIZATION_LIMITS.advicePreferences) &&
+    isBoundedString(value.thingsToAvoid, PERSONALIZATION_LIMITS.thingsToAvoid) &&
+    typeof value.proactiveSuggestions === 'boolean'
+}
+
 function hasValidSharedSettings(value: unknown): value is Omit<UserSettings, 'version' | 'onboarding'> {
   if (!isObject(value) || !isObject(value.profile) || !isObject(value.appearance) || !isObject(value.privacy) || !isObject(value.finance) || !isObject(value.assistant)) {
     return false
@@ -245,7 +304,11 @@ function hasValidSharedSettings(value: unknown): value is Omit<UserSettings, 've
     typeof assistant.responseStyle === 'string' &&
     typeof assistant.includeCalculations === 'boolean' &&
     typeof assistant.showSuggestions === 'boolean' &&
-    typeof assistant.languageStyle === 'string'
+    typeof assistant.languageStyle === 'string' &&
+    typeof assistant.personalizationEnabled === 'boolean' &&
+    typeof assistant.memoryEnabled === 'boolean' &&
+    isAssistantPersonalization(assistant.personalization)
+    && (assistant.ownerId === undefined || (typeof assistant.ownerId === 'string' && assistant.ownerId.length <= 100))
   )
 }
 
@@ -299,7 +362,18 @@ export function isUserSettings(value: unknown): value is UserSettings {
 }
 
 function isLegacySettings(value: unknown): value is LegacyUserSettings {
-  return isObject(value) && value.version === 1 && hasValidSharedSettings(value)
+  if (!isObject(value) || (value.version !== 1 && value.version !== 2) ||
+      !isObject(value.profile) || !isObject(value.appearance) || !isObject(value.privacy) ||
+      !isObject(value.finance) || !isObject(value.assistant)) return false
+  const { profile, appearance, privacy, finance, assistant } = value
+  return typeof profile.fullName === 'string' && profile.fullName.trim().length > 0 &&
+    typeof profile.initials === 'string' && /^[A-Z]{1,3}$/.test(profile.initials) &&
+    isIncomeType(profile.incomeType) && isAccountId(profile.defaultAccountId) &&
+    isThemePreference(appearance.themePreference) && typeof privacy.hideAmounts === 'boolean' &&
+    typeof privacy.hideBalancesOnLaunch === 'boolean' && finance.currency === 'PKR' &&
+    typeof finance.monthStartDay === 'number' && typeof finance.financialPositionStyle === 'string' &&
+    typeof assistant.responseStyle === 'string' && typeof assistant.includeCalculations === 'boolean' &&
+    typeof assistant.showSuggestions === 'boolean' && typeof assistant.languageStyle === 'string'
 }
 
 function migrateLegacySettings(settings: LegacyUserSettings): UserSettings {
@@ -315,13 +389,32 @@ function migrateLegacySettings(settings: LegacyUserSettings): UserSettings {
       ...settings.finance,
       accountBalances: cloneBalances(legacyBalances),
     },
-    onboarding: {
-      version: ONBOARDING_VERSION,
-      status: 'completed',
-      currentStep: 5,
-      completedAt: new Date().toISOString(),
+    assistant: {
+      ...settings.assistant,
+      personalizationEnabled: true,
+      memoryEnabled: true,
+      personalization: {
+        ...DEFAULT_ASSISTANT_PERSONALIZATION,
+        language: settings.assistant.languageStyle.toLocaleLowerCase().includes('roman') ? 'roman-urdu' : 'english',
+        responseLength: settings.assistant.responseStyle === 'concise' ? 'short' : settings.assistant.responseStyle,
+        proactiveSuggestions: settings.assistant.showSuggestions,
+      },
     },
+    onboarding: settings.onboarding && isOnboarding(settings.onboarding)
+      ? settings.onboarding
+      : {
+          version: ONBOARDING_VERSION,
+          status: 'completed',
+          currentStep: 5,
+          completedAt: new Date().toISOString(),
+        },
   }
+}
+
+export function normalizeUserSettings(value: unknown): UserSettings | undefined {
+  if (isValidSettings(value)) return cloneSettings(value)
+  if (isLegacySettings(value)) return migrateLegacySettings(value)
+  return undefined
 }
 
 function cloneSettings(settings: UserSettings): UserSettings {
@@ -334,7 +427,7 @@ function cloneSettings(settings: UserSettings): UserSettings {
       ...settings.finance,
       accountBalances: cloneBalances(settings.finance.accountBalances),
     },
-    assistant: { ...settings.assistant },
+    assistant: { ...settings.assistant, personalization: { ...settings.assistant.personalization } },
     onboarding: {
       ...settings.onboarding,
       ...(settings.onboarding.draft
@@ -370,12 +463,12 @@ export function loadSettingsWithOrigin(): LoadedSettings {
 
     const parsed: unknown = JSON.parse(raw)
 
-    if (isValidSettings(parsed)) {
-      return { settings: cloneSettings(parsed), origin: 'existing' }
-    }
-
-    if (isLegacySettings(parsed)) {
-      const migrated = migrateLegacySettings(parsed)
+    const normalized = normalizeUserSettings(parsed)
+    if (normalized) {
+      if (parsed && typeof parsed === 'object' && (parsed as { version?: unknown }).version === CURRENT_VERSION) {
+        return { settings: normalized, origin: 'existing' }
+      }
+      const migrated = normalized
       saveSettings(migrated)
       return { settings: migrated, origin: 'legacy' }
     }
@@ -396,9 +489,21 @@ export function saveSettings(settings: UserSettings): void {
   }
 
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
+    const serialized = JSON.stringify(settings)
+    window.localStorage.setItem(STORAGE_KEY, serialized)
+    if (settings.assistant.ownerId) window.localStorage.setItem(`${STORAGE_KEY}:${settings.assistant.ownerId}`, serialized)
   } catch {
     // Storage full or unavailable; the current session remains usable.
+  }
+}
+
+export function loadScopedUserSettings(userId: string): UserSettings | undefined {
+  if (typeof window === 'undefined' || !userId.trim()) return undefined
+  try {
+    const raw = window.localStorage.getItem(`${STORAGE_KEY}:${userId}`)
+    return raw ? normalizeUserSettings(JSON.parse(raw)) : undefined
+  } catch {
+    return undefined
   }
 }
 

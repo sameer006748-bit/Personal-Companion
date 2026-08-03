@@ -5,7 +5,7 @@ import type { FinanceState } from './financeCore'
 import type { SyncRecord, SyncRecordType } from './syncEngine'
 import type { PlanningState } from '../models/planning'
 import type { UserSettings } from '../models/settings'
-import { isUserSettings } from '../models/settings'
+import { normalizeUserSettings } from '../models/settings'
 import { getSupabaseClient } from './supabase'
 
 export interface CloudCounts {
@@ -337,7 +337,7 @@ export async function readCloudRestorePayload(user: User): Promise<CloudRestoreP
   const updatedAt = typeof settingsRow.data?.updated_at === 'string' ? settingsRow.data.updated_at : undefined
 
   return {
-    settings: isUserSettings(storedSettings) ? storedSettings : undefined,
+    settings: normalizeUserSettings(storedSettings),
     finance: financeState,
     planning: planningState,
     counts: {

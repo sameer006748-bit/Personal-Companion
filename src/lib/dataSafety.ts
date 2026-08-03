@@ -21,6 +21,7 @@ import type { PlanningState } from '../models/planning'
 import {
   SETTINGS_STORAGE_KEY,
   isUserSettings,
+  normalizeUserSettings,
   loadSettingsWithOrigin,
   type UserSettings,
 } from '../models/settings'
@@ -259,7 +260,8 @@ export function validateBackupEnvelope(raw: unknown): BackupValidation {
   const payload = data as Record<string, unknown>
 
   const structural: string[] = []
-  if (!isUserSettings(payload.settings)) structural.push('The saved profile and settings are not valid.')
+  const normalizedSettings = normalizeUserSettings(payload.settings)
+  if (!normalizedSettings) structural.push('The saved profile and settings are not valid.')
   if (!isFinanceState(payload.finance)) structural.push('The saved Finance records are not valid.')
   if (!isPlanningState(payload.planning)) structural.push('The saved Planning records are not valid.')
   if (structural.length) return { ok: false, errors: structural, warnings: [] }
@@ -273,7 +275,8 @@ export function validateBackupEnvelope(raw: unknown): BackupValidation {
     }
   }
 
-  const counts = countRecords(typed.finance, typed.planning)
+  const normalizedTyped: BackupPayload = { ...typed, settings: normalizedSettings! }
+  const counts = countRecords(normalizedTyped.finance, normalizedTyped.planning)
   const declared = candidate.counts
   if (typeof declared !== 'object' || declared === null) {
     return { ok: false, errors: ['This backup is missing its record counts.'], warnings: [] }
@@ -289,7 +292,7 @@ export function validateBackupEnvelope(raw: unknown): BackupValidation {
     }
   }
 
-  const { errors, warnings } = validatePayload(typed)
+  const { errors, warnings } = validatePayload(normalizedTyped)
   if (errors.length) return { ok: false, errors, warnings, counts }
 
   return {
@@ -304,7 +307,7 @@ export function validateBackupEnvelope(raw: unknown): BackupValidation {
       appVersion: typeof candidate.appVersion === 'string' ? candidate.appVersion : 'unknown',
       counts,
       checksum: candidate.checksum,
-      data: typed,
+      data: normalizedTyped,
     },
   }
 }

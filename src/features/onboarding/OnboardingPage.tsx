@@ -53,6 +53,7 @@ function getBalanceTotal(draft: OnboardingDraft): number {
 function validateDraft(
   draft: OnboardingDraft,
   step: OnboardingStep,
+  invalidBalanceIds: ReadonlySet<string> = new Set(),
 ): OnboardingErrors {
   const errors: OnboardingErrors = {}
 
@@ -69,7 +70,7 @@ function validateDraft(
   }
 
   if (step === 3 || step === 5) {
-    const balancesAreValid = Object.values(draft.accountBalances).every(
+    const balancesAreValid = invalidBalanceIds.size === 0 && Object.values(draft.accountBalances).every(
       (balance) =>
         Number.isInteger(balance) && balance >= 0 && balance <= 100000000,
     )
@@ -107,6 +108,7 @@ export function OnboardingPage() {
   const completeOnboarding = useAppStore((state) => state.completeOnboarding)
   const previewOnboardingDraft = useAppStore((state) => state.previewOnboardingDraft)
   const [errors, setErrors] = useState<OnboardingErrors>({})
+  const [balanceDrafts, setBalanceDrafts] = useState<Record<string, string>>({})
   const headingRef = useRef<HTMLHeadingElement>(null)
   const step = settings.onboarding.currentStep
   const draft = settings.onboarding.draft ?? createOnboardingDraft(settings)
@@ -114,8 +116,11 @@ export function OnboardingPage() {
 
   useEffect(() => {
     previewOnboardingDraft(draft)
+  }, [previewOnboardingDraft, draft])
+
+  useEffect(() => {
     headingRef.current?.focus()
-  }, [previewOnboardingDraft, draft, step])
+  }, [step])
 
   function updateDraft(next: OnboardingDraft) {
     setErrors({})
@@ -128,7 +133,7 @@ export function OnboardingPage() {
   }
 
   function handleContinue() {
-    const validationErrors = validateDraft(draft, step)
+    const validationErrors = validateDraft(draft, step, new Set(Object.keys(balanceDrafts).filter((id) => balanceDrafts[id] === '')))
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors)
@@ -238,13 +243,14 @@ export function OnboardingPage() {
                     <span>PKR</span>
                     <input
                       id={`onboarding-balance-${account.id}`}
-                      type="number"
-                      min="0"
-                      max="100000000"
-                      step="1"
+                      type="text"
                       inputMode="numeric"
-                      value={account.openingBalance}
-                      onChange={(event) => { const balance = Number(event.target.value || 0); if (Number.isInteger(balance) && balance >= 0) updateDraft({ ...draft, accountBalances: { ...draft.accountBalances, [account.id]: balance }, accounts: accountDrafts.map((item) => item.id === account.id ? { ...item, openingBalance: balance } : item) }) }}
+                      pattern="[0-9]*"
+                      maxLength={9}
+                      autoComplete="off"
+                      value={balanceDrafts[account.id] ?? String(account.openingBalance)}
+                      onFocus={(event) => { if (event.target.value === '0') event.target.select() }}
+                      onChange={(event) => { const raw = event.target.value; if (raw !== '' && !/^\d+$/.test(raw)) return; setBalanceDrafts((current) => ({ ...current, [account.id]: raw })); if (raw === '') return; const balance = Number(raw); updateDraft({ ...draft, accountBalances: { ...draft.accountBalances, [account.id]: balance }, accounts: accountDrafts.map((item) => item.id === account.id ? { ...item, openingBalance: balance } : item) }) }}
                     />
                   </div>
                   <select aria-label={`${account.name || 'Account'} type`} value={account.type} onChange={(event) => updateDraft({ ...draft, accounts: accountDrafts.map((item) => item.id === account.id ? { ...item, type: event.target.value as AccountType } : item) })}>{(Object.keys(ACCOUNT_TYPE_LABELS) as AccountType[]).map((type) => <option key={type} value={type}>{ACCOUNT_TYPE_LABELS[type]}</option>)}</select>
