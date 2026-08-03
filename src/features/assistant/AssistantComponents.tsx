@@ -3,18 +3,18 @@ import { ArrowUp, MessageCircleMore, SendHorizontal, Sparkles } from 'lucide-rea
 import type { FormEvent, KeyboardEvent, RefObject } from 'react'
 
 import type {
+  AssistantActionBatch,
+  AssistantActionProposal,
+  AssistantActionReceipt,
   AssistantInsight,
   AssistantMessage,
 } from '../../models/assistant'
 import { PrivateAmount } from '../../shared/ui/PrivateAmount'
 
 const assistantSuggestions = [
-  'What happened with my money this month?',
-  'Can I safely spend PKR 20,000?',
-  'Who still owes me money?',
-  'What payments need attention?',
-  'Why were my expenses high?',
-  'Summarize my financial position.',
+  'How is my money looking right now?',
+  'Help me plan this month.',
+  'What needs my attention?',
 ] as const
 
 interface AssistantIntroProps {
@@ -34,8 +34,7 @@ export function AssistantIntro({ greeting, name }: AssistantIntroProps) {
           {greeting}, {name}.
         </h2>
         <p>
-          I can help explain your balances, spending, commitments, receivables,
-          and upcoming payments.
+          Talk naturally about money, plans, decisions, or anything weighing on you.
         </p>
       </div>
     </section>
@@ -103,15 +102,156 @@ function AssistantInsightView({ insight }: { insight: AssistantInsight }) {
   )
 }
 
+function proposalTitle(actionType: AssistantActionProposal['actionType']): string {
+  return {
+    'add-income': 'Record income', 'add-expense': 'Record expense', transfer: 'Review transfer',
+    'account-adjustment': 'Review account adjustment', 'receive-receivable': 'Mark receivable received',
+    'pay-payable': 'Mark payable paid', 'add-commitment': 'Add commitment',
+    'add-receivable': 'Record money owed to you', 'add-payable': 'Record money you owe',
+    'settle-commitment': 'Mark commitment paid',
+    'create-account': 'Create account', 'update-account': 'Update account',
+    'archive-account': 'Archive account', 'restore-account': 'Restore account',
+    'set-default-account': 'Set default account', 'update-transaction': 'Update transaction',
+    'delete-transaction': 'Delete transaction', 'update-receivable': 'Update receivable',
+    'delete-receivable': 'Delete receivable', 'update-payable': 'Update payable',
+    'delete-payable': 'Delete payable', 'update-commitment': 'Update commitment',
+    'archive-commitment': 'Archive commitment', 'restore-commitment': 'Restore commitment',
+    'delete-commitment': 'Delete commitment', 'update-preference': 'Update preference',
+  }[actionType]
+}
+
+function AssistantActionPreview({ proposal, isExecuting, onConfirm, onCancel }: {
+  proposal: AssistantActionProposal
+  isExecuting: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const isPending = proposal.status === 'proposed'
+  const kicker = isPending ? 'Review before recording' : proposal.status === 'cancelled' ? 'Cancelled' : proposal.status === 'superseded' ? 'Replaced' : 'Could not complete'
+  const stateText = proposal.status === 'cancelled'
+    ? 'Nothing changed.'
+    : proposal.status === 'superseded'
+      ? 'A newer preview replaced this one.'
+      : proposal.status === 'failed'
+        ? 'Nothing was recorded. Review current records and prepare a new preview.'
+        : 'This preview is no longer active.'
+  return (
+    <section className="assistant-action-preview glass-elevated" aria-label={proposalTitle(proposal.actionType)}>
+      <p className="assistant-action-kicker">{kicker}</p>
+      <h3>{proposalTitle(proposal.actionType)}</h3>
+      {proposal.actionType !== 'update-preference' ? <PrivateAmount amount={proposal.amountPkr} /> : null}
+      <p>{proposal.summary}</p>
+      {isPending ? <p className="assistant-action-note">Nothing will change until you confirm.</p> : null}
+      {isPending ? <div className="assistant-action-buttons">
+        <button type="button" className="assistant-action-confirm" disabled={isExecuting} onClick={onConfirm}>Confirm and record</button>
+        <button type="button" className="glass-control" disabled={isExecuting} onClick={onCancel}>Cancel</button>
+      </div> : <p className="assistant-action-state">{stateText}</p>}
+    </section>
+  )
+}
+
+function AssistantReceipt({ amount, affectedLabel, resultingAmount, completedAt }: { amount: number; affectedLabel: string; resultingAmount?: number; completedAt: number }) {
+  return <section className="assistant-action-receipt" aria-label="Action completed">
+    <strong>Action completed</strong>
+    <PrivateAmount amount={amount} />
+    <span>{affectedLabel}</span>
+    {typeof resultingAmount === 'number' ? <span>Updated amount: <PrivateAmount amount={resultingAmount} /></span> : null}
+    <span>{format(completedAt, 'h:mm a')} · Recorded by Assistant after confirmation</span>
+  </section>
+}
+
+// A compound request is previewed as one card carrying every child, so nothing
+// the user asked for can be missing from what they are confirming. Confirm All
+// is the only control: the children are executed together or not at all, so
+// there is deliberately no per-child confirm button.
+function AssistantActionBatchPreview({ batch, isExecuting, onConfirm, onCancel }: {
+  batch: AssistantActionBatch
+  isExecuting: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const isPending = batch.status === 'proposed'
+  const kicker = isPending
+    ? `Review ${batch.actionCount} actions before recording`
+    : batch.status === 'cancelled' ? 'Cancelled' : batch.status === 'superseded' ? 'Replaced' : 'Could not complete'
+  const stateText = batch.status === 'cancelled'
+    ? 'Nothing changed.'
+    : batch.status === 'superseded'
+      ? 'A newer preview replaced this one.'
+      : batch.status === 'failed'
+        ? 'Nothing was recorded. Review current records and prepare a new preview.'
+        : 'This preview is no longer active.'
+  return (
+    <section className="assistant-action-preview glass-elevated" aria-label={`Review ${batch.actionCount} actions`}>
+      <p className="assistant-action-kicker">{kicker}</p>
+      <h3>{batch.actionCount} actions</h3>
+      <ol className="assistant-action-batch-list">
+        {batch.proposals.map((child) => (
+          <li key={child.proposalId} className="assistant-action-batch-item">
+            <strong>{proposalTitle(child.actionType)}</strong>
+            <PrivateAmount amount={child.amountPkr} />
+            <span>{child.summary}</span>
+          </li>
+        ))}
+      </ol>
+      {isPending ? <p className="assistant-action-note">Nothing will change until you confirm all of them.</p> : null}
+      {isPending ? <div className="assistant-action-buttons">
+        <button type="button" className="assistant-action-confirm" disabled={isExecuting} onClick={onConfirm}>Confirm all and record</button>
+        <button type="button" className="glass-control" disabled={isExecuting} onClick={onCancel}>Cancel</button>
+      </div> : <p className="assistant-action-state">{stateText}</p>}
+    </section>
+  )
+}
+
+// One receipt for the whole batch, listing every child. The preview is not
+// rendered alongside it, so a completed batch shows exactly one card.
+function AssistantBatchReceipt({ receipts }: { receipts: readonly AssistantActionReceipt[] }) {
+  const first = receipts[0]
+  return <section className="assistant-action-receipt" aria-label="Actions completed">
+    <strong>{receipts.length} actions completed</strong>
+    <ul className="assistant-action-batch-list">
+      {receipts.map((receipt) => (
+        <li key={receipt.proposalId} className="assistant-action-batch-item">
+          <PrivateAmount amount={receipt.amountPkr} />
+          <span>{receipt.affectedLabel}</span>
+          {typeof receipt.resultingAmount === 'number' ? <span>Updated amount: <PrivateAmount amount={receipt.resultingAmount} /></span> : null}
+        </li>
+      ))}
+    </ul>
+    {first ? <span>{format(first.completedAt, 'h:mm a')} · Recorded by Assistant after confirmation</span> : null}
+  </section>
+}
+
+function AssistantMemoryPreview({ proposal, onSave, onReject }: { proposal: NonNullable<AssistantMessage['memoryProposal']>; onSave: () => void; onReject: () => void }) {
+  return <section className="assistant-memory-preview glass-elevated" aria-label="Memory confirmation">
+    <p className="assistant-action-kicker">Remember for future conversations?</p>
+    <strong>{proposal.displayLabel}</strong>
+    <span>{proposal.reason}</span>
+    {proposal.status === 'proposed' ? <div className="assistant-action-buttons"><button type="button" className="assistant-action-confirm" onClick={onSave}>Save memory</button><button type="button" className="glass-control" onClick={onReject}>Not now</button></div> : <span>{proposal.status === 'saved' ? 'Saved.' : 'Not saved.'}</span>}
+  </section>
+}
+
 interface AssistantMessageListProps {
   messages: readonly AssistantMessage[]
   onFollowUp: (question: string) => void
+  onConfirmProposal: (message: AssistantMessage) => void
+  onCancelProposal: (message: AssistantMessage) => void
+  onSaveMemory: (message: AssistantMessage) => void
+  onRejectMemory: (message: AssistantMessage) => void
+  executingProposalId?: string
+  isPending?: boolean
   endRef: RefObject<HTMLDivElement | null>
 }
 
 export function AssistantMessageList({
   messages,
   onFollowUp,
+  onConfirmProposal,
+  onCancelProposal,
+  onSaveMemory,
+  onRejectMemory,
+  executingProposalId,
+  isPending = false,
   endRef,
 }: AssistantMessageListProps) {
   return (
@@ -125,6 +265,11 @@ export function AssistantMessageList({
             </time>
           </div>
           <p>{message.text}</p>
+          {message.proposal && message.proposal.status !== 'executed' ? <AssistantActionPreview proposal={message.proposal} isExecuting={executingProposalId === message.proposal.proposalId} onConfirm={() => onConfirmProposal(message)} onCancel={() => onCancelProposal(message)} /> : null}
+          {message.batch && message.batch.status !== 'executed' ? <AssistantActionBatchPreview batch={message.batch} isExecuting={executingProposalId === message.batch.batchId} onConfirm={() => onConfirmProposal(message)} onCancel={() => onCancelProposal(message)} /> : null}
+          {message.batch?.receipts?.length ? <AssistantBatchReceipt receipts={message.batch.receipts} /> : null}
+          {message.receipt ? <AssistantReceipt amount={message.receipt.amountPkr} affectedLabel={message.receipt.affectedLabel} completedAt={message.receipt.completedAt} {...(message.receipt.resultingAmount === undefined ? {} : { resultingAmount: message.receipt.resultingAmount })} /> : null}
+          {message.memoryProposal ? <AssistantMemoryPreview proposal={message.memoryProposal} onSave={() => onSaveMemory(message)} onReject={() => onRejectMemory(message)} /> : null}
           {message.insight ? <AssistantInsightView insight={message.insight} /> : null}
           {message.followUps?.length ? (
             <div className="assistant-follow-ups" aria-label="Suggested follow-up questions">
@@ -142,32 +287,68 @@ export function AssistantMessageList({
           ) : null}
         </article>
       ))}
+      {isPending ? <article className="assistant-message is-assistant is-pending" aria-label="Assistant is thinking"><div className="assistant-message-heading"><span>Personal Companion</span></div><p>Thinking…</p></article> : null}
       <div ref={endRef} />
+    </section>
+  )
+}
+
+interface AssistantClearHistoryProps {
+  onConfirm: () => void
+  onCancel: () => void
+}
+
+// Deliberately an inline panel rather than a modal: it confirms explicitly
+// without seizing focus from the page or animating over the conversation, and it
+// states exactly what is and is not removed so the action cannot be mistaken for
+// deleting financial data.
+export function AssistantClearHistory({ onConfirm, onCancel }: AssistantClearHistoryProps) {
+  return (
+    <section className="assistant-clear-confirm glass-elevated" aria-label="Clear conversation">
+      <p>Clear this conversation?</p>
+      <p>
+        This removes the Assistant messages on this device only. Your accounts,
+        transactions, planning records, cloud backup, and sign-in are not affected.
+      </p>
+      <div className="assistant-clear-actions">
+        <button type="button" className="assistant-clear-confirm-action" onClick={onConfirm}>
+          Clear conversation
+        </button>
+        <button type="button" className="glass-control" onClick={onCancel}>
+          Keep conversation
+        </button>
+      </div>
     </section>
   )
 }
 
 interface AssistantComposerProps {
   value: string
+  isBusy: boolean
   onChange: (value: string) => void
   onSubmit: () => void
 }
 
 export function AssistantComposer({
   value,
+  isBusy,
   onChange,
   onSubmit,
 }: AssistantComposerProps) {
-  const isDisabled = value.trim().length === 0
+  // Blocked while a turn is running as well as while empty, so a second tap
+  // cannot queue a duplicate question behind the one being answered.
+  const isDisabled = isBusy || value.trim().length === 0
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (isDisabled) return
     onSubmit()
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
+      if (isDisabled) return
       onSubmit()
     }
   }
