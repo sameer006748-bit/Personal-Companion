@@ -154,6 +154,10 @@ export interface PlanningReceivable {
   dueDate: string
   status: ReceivableStatus
   note?: string
+  accountId?: AccountId
+  // Timeline metadata. Optional because the seeded design fixture predates it.
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface PlanningPayable {
@@ -164,6 +168,9 @@ export interface PlanningPayable {
   dueDate: string
   status: PayableStatus
   note?: string
+  accountId?: AccountId
+  createdAt?: string
+  updatedAt?: string
 }
 
 export type CommitmentFrequency =
@@ -182,6 +189,10 @@ export interface PlanningCommitment {
   dueDate: string
   status: PlanningCommitmentStatus
   accountId?: AccountId
+  note?: string
+  createdAt?: string
+  updatedAt?: string
+  lastPaidDate?: string
 }
 
 export interface PersonalFinanceData {

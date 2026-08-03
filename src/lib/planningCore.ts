@@ -319,6 +319,9 @@ export function toPlanningReceivables(
     dueDate: record.dueDate,
     status: getReceivableStatus(record, today),
     ...(record.note ? { note: record.note } : {}),
+    ...(record.accountId ? { accountId: record.accountId } : {}),
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
   }))
 }
 
@@ -334,6 +337,9 @@ export function toPlanningPayables(
     dueDate: record.dueDate,
     status: getPayableStatus(record, today),
     ...(record.note ? { note: record.note } : {}),
+    ...(record.accountId ? { accountId: record.accountId } : {}),
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
   }))
 }
 
@@ -350,6 +356,10 @@ export function toPlanningCommitments(
     dueDate: record.dueDate,
     status: getCommitmentStatus(record, today),
     ...(record.accountId ? { accountId: record.accountId } : {}),
+    ...(record.note ? { note: record.note } : {}),
+    ...(record.lastPaidDate ? { lastPaidDate: record.lastPaidDate } : {}),
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
   }))
 }
 

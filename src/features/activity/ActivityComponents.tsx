@@ -3,9 +3,11 @@ import {
   ArrowDownLeft,
   ArrowLeftRight,
   ArrowUpRight,
+  CalendarClock,
   CircleDollarSign,
   FileSearch,
   Fuel,
+  Handshake,
   House,
   ReceiptText,
   ShoppingBag,
@@ -15,21 +17,21 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
+import { formatActivityRange } from '../../lib/activitySelectors'
 import type {
+  ActivityDateRange,
+  ActivityEventKind,
+  ActivityItem,
+  ActivityMoneyDirection,
   ActivitySummary,
   ActivityTimelineGroup,
-} from '../../lib/financeSelectors'
-import type {
-  AccountId,
-  FinanceTransaction,
-  TransactionCategory,
-  TransactionDirection,
-  TransactionStatus,
-} from '../../models/finance'
+} from '../../lib/activitySelectors'
+import type { TransactionCategory } from '../../models/finance'
 import { PrivateAmount } from '../../shared/ui/PrivateAmount'
 
 interface ActivitySummaryCardsProps {
   summary: ActivitySummary
+  range: ActivityDateRange
 }
 
 const summaryCards: readonly {
@@ -49,9 +51,12 @@ const summaryCards: readonly {
   { key: 'payables', label: 'Payables', icon: ArrowUpRight, tone: 'pay' },
 ]
 
-export function ActivitySummaryCards({ summary }: ActivitySummaryCardsProps) {
+export function ActivitySummaryCards({ summary, range }: ActivitySummaryCardsProps) {
   return (
-    <section className="activity-summary" aria-label="Quick summary">
+    <section
+      className="activity-summary"
+      aria-label={`Summary for ${formatActivityRange(range)}`}
+    >
       {summaryCards.map((card) => {
         const Icon = card.icon
 
@@ -71,59 +76,51 @@ const categoryIcons: Partial<Record<TransactionCategory, LucideIcon>> = {
   'client-payment': TrendingUp,
   consultation: CircleDollarSign,
   housing: House,
+  rent: House,
   health: ReceiptText,
   utilities: ReceiptText,
   groceries: ShoppingBag,
   shopping: ShoppingBag,
   dining: Utensils,
   transport: Fuel,
+  fuel: Fuel,
   'cash-withdrawal': ArrowDownLeft,
   medicine: ReceiptText,
   electricity: ReceiptText,
   entertainment: ReceiptText,
   loan: CircleDollarSign,
   transfer: ArrowLeftRight,
+  'account-transfer': ArrowLeftRight,
 }
 
-function getCategoryIcon(category: TransactionCategory): LucideIcon {
-  return categoryIcons[category] ?? ReceiptText
+const kindIcons: Partial<Record<ActivityEventKind, LucideIcon>> = {
+  transfer: ArrowLeftRight,
+  'receivable-created': Handshake,
+  'receivable-settled': ArrowDownLeft,
+  'payable-created': Handshake,
+  'payable-settled': ArrowUpRight,
+  'commitment-upcoming': CalendarClock,
+  'commitment-settled': CalendarClock,
 }
 
-const directionLabels: Record<TransactionDirection, string> = {
-  income: 'Money In',
-  expense: 'Money Out',
-  transfer: 'Transfer',
-  receivable: 'Receivable',
-  payable: 'Payable',
+function getItemIcon(item: ActivityItem): LucideIcon {
+  return (
+    kindIcons[item.kind] ?? categoryIcons[item.category] ?? ReceiptText
+  )
 }
 
-const statusLabels: Record<TransactionStatus, string> = {
-  paid: 'Paid',
-  received: 'Received',
-  pending: 'Pending',
-  overdue: 'Overdue',
-  transfer: 'Transfer',
-}
-
-function getAmountSign(direction: TransactionDirection): string {
-  if (direction === 'income' || direction === 'receivable') {
-    return '+'
-  }
-
-  if (direction === 'transfer') {
-    return '↔ '
-  }
-
+function getAmountSign(direction: ActivityMoneyDirection): string {
+  if (direction === 'in') return '+'
+  if (direction === 'neutral') return '↔ '
   return '-'
 }
 
 interface ActivityTimelineProps {
   groups: readonly ActivityTimelineGroup[]
-  accounts: ReadonlyMap<AccountId, string>
-  onSelect?: (transaction: FinanceTransaction) => void
+  onSelect?: (item: ActivityItem) => void
 }
 
-export function ActivityTimeline({ groups, accounts, onSelect }: ActivityTimelineProps) {
+export function ActivityTimeline({ groups, onSelect }: ActivityTimelineProps) {
   return (
     <section className="activity-timeline" aria-labelledby="timeline-title">
       <div className="activity-section-heading">
@@ -136,39 +133,35 @@ export function ActivityTimeline({ groups, accounts, onSelect }: ActivityTimelin
         <div key={group.id} className="timeline-group">
           <h3>{group.label}</h3>
           <ul className="timeline-list">
-            {group.transactions.map((transaction) => {
-              const Icon = getCategoryIcon(transaction.category)
-              const accountLabel = accounts.get(transaction.accountId) ?? 'Account'
+            {group.items.map((item) => {
+              const Icon = getItemIcon(item)
+              const isSelectable = item.sourceKind === 'transaction' && Boolean(onSelect)
 
               return (
-                <li key={transaction.id} className="timeline-row" onClick={() => onSelect?.(transaction)}>
+                <li
+                  key={item.id}
+                  className="timeline-row"
+                  {...(isSelectable ? { onClick: () => onSelect?.(item) } : {})}
+                >
                   <span
-                    className={[
-                      'timeline-icon',
-                      `direction-${transaction.direction}`,
-                    ].join(' ')}
+                    className={['timeline-icon', `direction-${item.direction}`].join(' ')}
                   >
                     <Icon aria-hidden="true" />
                   </span>
                   <span className="timeline-copy">
-                    <strong>{transaction.title}</strong>
-                    <small>
-                      {transaction.counterparty
-                        ? `${transaction.counterparty} · `
-                        : ''}
-                      {directionLabels[transaction.direction]} · {accountLabel}
-                    </small>
+                    <strong>{item.title}</strong>
+                    <small>{item.subtitle}</small>
                   </span>
                   <span className="timeline-meta">
-                    <time dateTime={transaction.date}>
-                      {format(parseISO(transaction.date), 'd MMM')}
+                    <time dateTime={item.eventDate}>
+                      {format(parseISO(item.eventDate), 'd MMM')}
                     </time>
-                    <span className={`timeline-status status-${transaction.status}`}>
-                      {statusLabels[transaction.status]}
+                    <span className={`timeline-status status-${item.status}`}>
+                      {item.statusLabel}
                     </span>
                     <PrivateAmount
-                      amount={transaction.amount}
-                      sign={getAmountSign(transaction.direction)}
+                      amount={item.amount}
+                      sign={getAmountSign(item.direction)}
                     />
                   </span>
                 </li>

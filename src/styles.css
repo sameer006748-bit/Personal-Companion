@@ -1234,11 +1234,84 @@ a {
   box-shadow: inset 0 1px 0 var(--glass-highlight);
 }
 
+.activity-custom-range {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.activity-custom-range label {
+  display: grid;
+  min-width: 0;
+  gap: 0.22rem;
+}
+
+.activity-custom-range label > span {
+  color: var(--ink-tertiary);
+  font-size: 0.6rem;
+  font-weight: 680;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.activity-custom-range input {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0 0.62rem;
+  border: 1px solid var(--glass-border);
+  border-bottom-color: var(--glass-border-lower);
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.7rem;
+  background: var(--glass-control-bg);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+
+.activity-custom-range-actions {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.activity-custom-range-actions button {
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  color: var(--accent-strong);
+  font-size: 0.68rem;
+  font-weight: 690;
+  cursor: pointer;
+}
+
+.activity-custom-range-actions button:last-child {
+  color: var(--ink-secondary);
+}
+
+.activity-range-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--negative);
+  font-size: 0.65rem;
+  font-weight: 660;
+}
+
 .activity-tools {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.55rem;
+  align-items: center;
   margin-top: 0.85rem;
+}
+
+.activity-range-label {
+  margin: 0;
+  color: var(--ink-tertiary);
+  font-size: 0.62rem;
+  font-weight: 680;
+  white-space: nowrap;
 }
 
 .activity-search {
@@ -1434,14 +1507,16 @@ a {
   stroke-width: 1.8;
 }
 
-.direction-income,
-.direction-receivable {
+.direction-in {
   color: var(--positive);
 }
 
-.direction-expense,
-.direction-payable {
+.direction-out {
   color: var(--negative);
+}
+
+.direction-neutral {
+  color: var(--ink-secondary);
 }
 
 .timeline-copy {
@@ -1493,8 +1568,19 @@ a {
   line-height: 1.2;
 }
 
-.status-received {
+.status-received,
+.status-paid {
   color: var(--positive);
+}
+
+.status-partially-received,
+.status-partially-paid,
+.status-due-soon {
+  color: var(--accent-strong);
+}
+
+.status-upcoming {
+  color: var(--ink-secondary);
 }
 
 .status-overdue {
@@ -2090,6 +2176,14 @@ a {
     font-size: 0.58rem;
   }
 
+  .activity-custom-range {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .activity-range-label {
+    font-size: 0.57rem;
+  }
+
   .activity-summary {
     gap: 0.42rem;
   }
@@ -2150,6 +2244,16 @@ a {
 
   .activity-summary {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .activity-custom-range {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    align-items: end;
+  }
+
+  .activity-custom-range-actions {
+    grid-column: auto;
+    grid-template-columns: auto auto;
   }
 
   .planning-page {
@@ -3243,6 +3347,90 @@ a {
 .cloud-sync { padding: 1.35rem; margin-top: 1.15rem; }.cloud-sync-header { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:1.05rem; }.cloud-sync-header .eyebrow { margin:0 0 .38rem; }.cloud-sync-header h2 { margin:0; }.cloud-status { flex:0 0 auto; margin-top:.18rem; padding:.34rem .62rem; border-radius:999px; font-size:.76rem; font-weight:700; background:var(--glass-inset-bg); border:1px solid var(--glass-border); }.cloud-status.is-connected { color:var(--accent); }.cloud-status.is-error { color:var(--danger); }.cloud-sync-note { margin:0; line-height:1.5; color:var(--ink-secondary); }.cloud-account { display:grid; grid-template-columns:auto 1fr; gap:.2rem .7rem; align-items:center; margin-top:.9rem; padding:.85rem; border:1px solid var(--glass-border); border-radius:14px; background:var(--glass-inset-bg); }.cloud-account > span { grid-row:span 2; display:grid; place-items:center; width:34px; height:34px; border-radius:11px; color:var(--accent); background:var(--glass-reflection); }.cloud-account strong,.cloud-account small { display:block; }.cloud-account small,.cloud-account p { color:var(--ink-secondary); overflow-wrap:anywhere; }.cloud-account p { grid-column:2; margin:.08rem 0 0; font-size:.84rem; }.cloud-metrics { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.55rem; margin-top:.85rem; }.cloud-metrics div { min-width:0; padding:.7rem .5rem; text-align:center; border-radius:12px; background:var(--glass-inset-bg); border:1px solid var(--glass-border); }.cloud-metrics strong,.cloud-metrics span { display:block; }.cloud-metrics strong { font-size:1.05rem; }.cloud-metrics span { margin-top:.18rem; font-size:.7rem; color:var(--ink-secondary); overflow-wrap:anywhere; }.cloud-sync-actions { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem; margin-top:1rem; }.cloud-sync-actions .finance-dialog-save { min-height:44px; padding:0 1rem; }.cloud-sync-actions .auth-secondary,.cloud-sign-out { min-height:44px; display:inline-flex; align-items:center; gap:.42rem; }.cloud-sign-out { color:var(--ink-secondary); padding:0 .5rem; }.cloud-import-complete { display:inline-flex; align-items:center; gap:.4rem; min-height:44px; color:var(--accent); font-size:.9rem; }.cloud-import-complete svg,.cloud-sync-actions svg { width:16px; }
 @media (max-width: 560px) { .cloud-sync { padding:1.15rem; }.cloud-sync-header { align-items:flex-start; }.cloud-status { margin-top:.1rem; }.cloud-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }.cloud-metrics div:last-child { grid-column:span 2; }.cloud-sync-actions { display:grid; grid-template-columns:1fr; }.cloud-sync-actions > * { width:100%; justify-content:center; }.cloud-sign-out { justify-content:center; } }
 
+/* Fresh-device cloud recovery gate. Shares the cloud metric and action styles
+   above; only the standalone card layout and its states are defined here. */
+.cloud-recovery {
+  display: grid;
+  gap: 0.8rem;
+  max-width: 100%;
+}
+
+.cloud-recovery .eyebrow {
+  margin: 0;
+}
+
+.cloud-recovery h1 {
+  margin: 0;
+  font-size: clamp(1.22rem, 5.2vw, 1.58rem);
+  font-weight: 690;
+  letter-spacing: -0.042em;
+  line-height: 1.16;
+  overflow-wrap: anywhere;
+}
+
+.cloud-recovery > p {
+  margin: 0;
+  color: var(--ink-secondary);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.cloud-recovery .cloud-metrics {
+  margin-top: 0.1rem;
+}
+
+.cloud-recovery .cloud-sync-actions {
+  margin-top: 0.25rem;
+}
+
+.cloud-recovery .cloud-sync-actions > *,
+.cloud-recovery .cloud-sync-confirm > button {
+  min-height: 44px;
+}
+
+.cloud-recovery .cloud-sync-confirm {
+  margin-top: 0.25rem;
+  padding: 0.85rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  background: var(--glass-inset-bg);
+}
+
+.cloud-recovery .cloud-sync-confirm p {
+  margin: 0 0 0.15rem;
+  color: var(--ink-secondary);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.cloud-recovery .cloud-sync-confirm > button {
+  width: 100%;
+  justify-content: center;
+}
+
+.cloud-recovery .finance-dialog-error {
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 390px) {
+  .cloud-recovery {
+    gap: 0.7rem;
+  }
+
+  .cloud-recovery .cloud-metrics {
+    gap: 0.45rem;
+  }
+
+  .cloud-recovery .cloud-metrics div {
+    padding: 0.6rem 0.4rem;
+  }
+
+  .cloud-recovery .cloud-metrics strong {
+    font-size: 0.98rem;
+  }
+}
+
 .profile-header {
   display: flex;
   flex-direction: column;
@@ -3449,6 +3637,77 @@ a {
   margin-top: 0.85rem;
   padding: 1rem;
   border-color: var(--glass-rim);
+}
+
+.profile-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.9rem;
+  padding: 0.38rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.profile-tabs::-webkit-scrollbar { display: none; }
+
+.profile-tabs button {
+  flex: 0 0 auto;
+  min-height: 2.65rem;
+  padding: 0 0.82rem;
+  border-radius: 0.8rem;
+  color: var(--ink-secondary);
+  font-size: 0.72rem;
+  font-weight: 680;
+  white-space: nowrap;
+}
+
+.profile-tabs button.is-active {
+  color: var(--ink-primary);
+  background: var(--glass-inset-bg);
+  box-shadow: inset 0 0 0 1px var(--glass-border);
+}
+
+.profile-section-intro {
+  margin: 0 0 0.4rem;
+  color: var(--ink-secondary);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.personalization-group {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--glass-border);
+}
+
+.personalization-group h3 {
+  margin: 0 0 0.2rem;
+  font-size: 0.76rem;
+}
+
+.personalization-field textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+.personalization-field small {
+  justify-self: end;
+  color: var(--ink-tertiary);
+  font-size: 0.62rem;
+}
+
+.personalization-advanced {
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--glass-border);
+}
+
+.personalization-advanced summary {
+  min-height: 2.75rem;
+  color: var(--ink-secondary);
+  font-size: 0.74rem;
+  font-weight: 680;
+  cursor: pointer;
 }
 
 .profile-section-title {
@@ -3664,6 +3923,13 @@ a {
   }
 
   .profile-section-content .profile-setting-row {
+    grid-column: 1 / -1;
+  }
+
+  .profile-section-intro,
+  .personalization-group,
+  .personalization-advanced,
+  .profile-section-content > .profile-edit-actions {
     grid-column: 1 / -1;
   }
 }
@@ -4347,6 +4613,99 @@ a {
   color: var(--text-muted, rgb(120 120 130));
 }
 
+.assistant-action-preview,
+.assistant-action-receipt {
+  margin-top: 0.9rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.assistant-action-kicker {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.assistant-action-preview h3,
+.assistant-action-preview p,
+.assistant-action-receipt {
+  margin: 0;
+}
+
+.assistant-action-preview > .private-amount,
+.assistant-action-receipt > .private-amount {
+  font-size: 1.25rem;
+  font-weight: 750;
+}
+
+.assistant-action-note,
+.assistant-action-state,
+.assistant-action-receipt span {
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.assistant-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.25rem;
+}
+
+/* Compact child rows for a multi-action preview or its combined receipt. Each
+   row states its own amount and target, so the user confirms every action they
+   asked for rather than a summarised total. */
+.assistant-action-batch-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0 0 0 1.1rem;
+}
+
+.assistant-action-batch-item {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.assistant-action-batch-item strong {
+  font-size: 0.9rem;
+}
+
+.assistant-action-batch-item .private-amount {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.assistant-action-batch-item span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.assistant-action-buttons button {
+  min-height: 44px;
+}
+
+.assistant-action-confirm {
+  border: 0;
+  border-radius: 0.8rem;
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0.65rem 1rem;
+}
+
+.assistant-action-confirm:disabled,
+.assistant-action-buttons .glass-control:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .assistant-ai-disclosure {
   padding: 0.75rem 0 0.25rem;
   font-size: 0.8125rem;
@@ -4365,4 +4724,99 @@ a {
 
 .assistant-ai-disclosure li {
   margin-bottom: 0.2rem;
+}
+
+.assistant-memory-preview {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+  padding: 0.9rem;
+  border-radius: 1rem;
+}
+
+.assistant-memory-preview > span,
+.memory-list small {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.memory-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.memory-list > div {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.memory-list span { display: grid; gap: 0.15rem; }
+.memory-list button { min-height: 44px; }
+
+/* Assistant conversation controls */
+.assistant-header-controls {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.assistant-clear-confirm {
+  margin-top: 0.75rem;
+  padding: 0.85rem 0.9rem;
+}
+
+.assistant-clear-confirm > p:first-child {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 690;
+  letter-spacing: -0.012em;
+}
+
+.assistant-clear-confirm > p:nth-child(2) {
+  margin: 0.35rem 0 0;
+  color: var(--ink-secondary);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.assistant-clear-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+/* 44px minimum target on every pointer size, including touch. */
+.assistant-clear-actions button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.assistant-clear-confirm-action {
+  border: 1px solid color-mix(in srgb, var(--accent), transparent 42%);
+  border-radius: 0.9rem;
+  color: var(--accent-ink);
+  background: var(--accent);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+
+@media (max-width: 560px) {
+  .assistant-clear-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .assistant-clear-actions button {
+    width: 100%;
+  }
 }

@@ -1,3 +1,4 @@
+import { getLocalTodayIso } from '../lib/activitySelectors'
 import { getAccountBalance, getActiveAccounts, type FinanceState } from '../lib/financeCore'
 import {
   toPlanningCommitments,
@@ -13,8 +14,8 @@ export const personalFinanceData: PersonalFinanceData = {
   activityReferenceDate: '2026-07-29',
   planningReferenceDate: '2026-07-29',
   profile: {
-    name: 'Sameer',
-    initials: 'SK',
+    name: 'Sample user',
+    initials: 'SU',
     incomeType: 'Variable income',
   },
   accounts: [
@@ -572,11 +573,13 @@ function currentMonth(today: string): string {
 
 // Real user runtime. Reads only persisted local finance and planning state; the
 // seeded fixture above is never merged in.
+// `today` is the user's local calendar day. Deriving it from the UTC ISO string
+// shifted the day backwards for users ahead of UTC in their early morning.
 export function getLocalPersonalFinanceData(
   settings: UserSettings,
   finance: FinanceState,
   planning: PlanningState,
-  today: string = new Date().toISOString().slice(0, 10),
+  today: string = getLocalTodayIso(),
 ): PersonalFinanceData {
   return {
     reportingMonth: currentMonth(today),
