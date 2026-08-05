@@ -114,6 +114,10 @@ export function AssistantPage() {
         replaceAssistantMessage(outcome.replaceMessageId, outcome.replacementMessage)
       }
 
+      // Typed cancellation is represented entirely by the updated preview. It
+      // must not append a second Assistant cancellation bubble.
+      if (outcome.kind === 'replace') return
+
       if (outcome.forgetMemoryQuery) forgetAssistantMemory(outcome.forgetMemoryQuery)
       const assistantAppendStartedAt = performance.now()
       appendAssistantMessages([outcome.message])

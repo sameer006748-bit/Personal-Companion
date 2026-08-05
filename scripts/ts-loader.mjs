@@ -12,13 +12,13 @@ export async function resolve(specifier, context, nextResolve) {
 
 // Vite exposes build-time configuration on import.meta.env, which Node does not
 // define, so reading it under the test runner throws before a module body runs.
-// Rewriting it to an empty object lets application modules be imported and
-// exercised directly; every value it carries is public build configuration, and
-// an absent value is exactly the "not configured" path the code already handles.
+// Rewriting it to the diagnostics build flag lets application modules be
+// exercised directly while keeping all other Vite configuration absent.
 export async function load(url, context, nextLoad) {
   const loaded = await nextLoad(url, context)
   if (typeof loaded.source !== 'string' && !(loaded.source instanceof Uint8Array)) return loaded
   const source = loaded.source.toString()
   if (!source.includes('import.meta.env')) return loaded
-  return { ...loaded, source: source.replaceAll('import.meta.env', '({})') }
+  const environment = JSON.stringify({ VITE_ASSISTANT_DIAGNOSTICS: process.env.VITE_ASSISTANT_DIAGNOSTICS })
+  return { ...loaded, source: source.replaceAll('import.meta.env', `(${environment})`) }
 }

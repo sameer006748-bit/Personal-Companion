@@ -32,3 +32,4 @@ vite.config.d.ts
 # Graphify generates a local repository index and visualization.
 graphify-out/
 
+logcat-*.txt

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Moon, Sun } from 'lucide-react'
+import { Landmark, MessageCircleHeart, Moon, ShieldCheck, Sun } from 'lucide-react'
 import { useNavigate } from 'react-router'
 
 import {
@@ -172,10 +172,22 @@ export function OnboardingPage() {
 
         {step === 1 ? (
           <section className="onboarding-welcome">
-            <p className="eyebrow">Your personal financial overview</p>
-            <StepTitle title="Understand your money with clarity." headingRef={headingRef}>
-              Set up your personal financial overview in a few simple steps.
+            <img
+              className="onboarding-welcome-icon"
+              src="/icons/app-icon-512.png"
+              width={512}
+              height={512}
+              alt=""
+            />
+            <p className="eyebrow">Personal Companion</p>
+            <StepTitle title="Your money. Clearly understood." headingRef={headingRef}>
+              Track your money, plan what is due, and talk to a companion that understands your financial life.
             </StepTitle>
+            <ul className="onboarding-trust-points">
+              <li><Landmark aria-hidden="true" /><span>Your accounts and planning in one place</span></li>
+              <li><ShieldCheck aria-hidden="true" /><span>Actions always require your confirmation</span></li>
+              <li><MessageCircleHeart aria-hidden="true" /><span>Private, personalized and built around you</span></li>
+            </ul>
             <OnboardingPrivacyNote />
           </section>
         ) : null}

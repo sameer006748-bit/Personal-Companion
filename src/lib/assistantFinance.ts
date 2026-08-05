@@ -186,6 +186,70 @@ function normalise(value: string): string {
   return value.toLocaleLowerCase().replaceAll(/[^a-z0-9\s]/g, ' ').replaceAll(/\s+/g, ' ').trim()
 }
 
+// Mutation language is intentionally broader than the small set of commands we
+// can prepare locally. Its first job is routing safety: a request to add, edit,
+// delete or move money must never be mistaken for a read just because it also
+// names Cash or contains the word balance.
+const ACTION_COMMAND_CUE =
+  /\b(add|record|create|deposit|top\s*up|topup|jama|daal|dalo|dal do|karo|edit|update|delete|remove|move|transfer|send|bhej|withdraw|nikal)\b/u
+const ACTION_OBJECT_CUE =
+  /\b(account|balance|cash|bank|wallet|savings|transaction|expense|income|kharch|kharcha|paisa|paise|paisay|paisy|pkr|rupees?)\b/u
+
+export function isAssistantActionCommand(question: string): boolean {
+  const input = normalise(question)
+  return ACTION_COMMAND_CUE.test(input) && ACTION_OBJECT_CUE.test(input)
+}
+
+function parseSinglePkrAmount(question: string): number | undefined {
+  const amounts = [...question.matchAll(/(?:\bpkr\s*)?(\d{1,3}(?:,\d{3})+|\d+)/giu)]
+    .map((match) => Number.parseInt((match[1] ?? '').replaceAll(',', ''), 10))
+    .filter((amount) => Number.isSafeInteger(amount) && amount > 0)
+  return amounts.length === 1 ? amounts[0] : undefined
+}
+
+function resolveLocalActionAccount(finance: FinanceState, question: string) {
+  const matches = findAccountsMatchingQuestion(finance, question)
+  if (matches.length === 1) return matches[0]
+  if (matches.length > 1) return undefined
+  const active = getActiveAccounts(finance)
+  return active.find((account) => account.isDefault) ?? (active.length === 1 ? active[0] : undefined)
+}
+
+// MVP1 supports only unambiguous, single-account income and expense commands.
+// The resulting draft still goes through createAssistantProposalFromDraft(), so
+// account availability, amount bounds and expense balance checks remain local
+// domain decisions and no write occurs before explicit confirmation.
+export function parseDeterministicActionDraft(
+  question: string,
+  finance: FinanceState,
+  effectiveDate: string,
+): AssistantActionDraft | undefined {
+  if (!isAssistantActionCommand(question)) return undefined
+  const input = normalise(question)
+  const amountPkr = parseSinglePkrAmount(question)
+  if (!amountPkr) return undefined
+
+  const isExpense = /\b(expense|expenses|kharch|kharcha)\b/u.test(input)
+  const isIncome = /\bincome\b/u.test(input)
+  const isDeposit = /\b(deposit|jama|daal|dalo|dal do|top\s*up|topup)\b/u.test(input)
+  const isGenericAdd = /\badd\b/u.test(input) && /\b(cash|bank|wallet|savings|account)\b/u.test(input)
+  if (!isExpense && !isIncome && !isDeposit && !isGenericAdd) return undefined
+
+  const account = resolveLocalActionAccount(finance, question)
+  if (!account) return undefined
+  const actionType = isExpense ? 'add-expense' as const : 'add-income' as const
+  return {
+    actionType,
+    amountPkr,
+    description: isExpense ? 'Assistant expense' : 'Assistant income',
+    effectiveDate,
+    summary: isExpense ? 'Record an expense.' : 'Record income.',
+    ...(actionType === 'add-expense'
+      ? { sourceAccountId: account.id }
+      : { targetAccountId: account.id }),
+  }
+}
+
 // A very small canonical set: an account literally named after a type label is
 // treated as declaring that type. Anything else is left alone.
 const CANONICAL_TYPE_NAMES: Readonly<Record<string, string>> = {
@@ -222,8 +286,74 @@ export function findAccountsMatchingQuestion(
     .map((account) => ({ id: account.id, name: account.name }))
 }
 
+// Roman Urdu asks "kitne"/"kitnay" as often as "kitna", and names the money
+// itself ("paise", "paisy") rather than the word balance. Only recognising the
+// English spellings is what sent an ordinary balance question to the model.
+const BALANCE_QUESTION_CUE =
+  /\b(balance|available|kitna|kitni|kitne|kitnay|how much|current|currently|total|batao|bata|bta|what is|whats|hai|hain|hein)\b/u
+const BALANCE_MONEY_CUE = /\b(balance|paisa|paise|paisay|paisy|money|cash|funds|rupay|rupees)\b/u
+const BALANCE_NON_READ_CUE =
+  /\b(should|chahiye|karun|karoon|karna|if|agar|would|could|advice|suggest|edit|update|delete|remove|move|transfer|send|bhej|withdraw|nikal)\b/u
+
 function isAccountBalanceQuestion(input: string): boolean {
-  return /\b(balance|available|kitna|kitni|amount)\b/u.test(input)
+  if (isAssistantActionCommand(input) || BALANCE_NON_READ_CUE.test(input)) return false
+  return BALANCE_MONEY_CUE.test(input) && BALANCE_QUESTION_CUE.test(input)
+}
+
+// A general balance question asks what is on hand without naming an account or
+// an account type. It has to be separated from advice, because the same money
+// words appear in "how much should I give my mother", which is a conversation
+// the model owns. So a read needs a money noun and a quantity word, and any
+// action or advice shape disqualifies it.
+const GENERAL_BALANCE_MONEY = /\b(balance|paisa|paise|paisay|paisy|money|cash|funds|rupay|rupees)\b/u
+const GENERAL_BALANCE_ASK =
+  /\b(kitne|kitna|kitni|kitnay|how much|how many|current|currently|available|total|batao|bata|bta|what is|whats|hai|hain|hein)\b/u
+const GENERAL_BALANCE_EXCLUDE =
+  /\b(dena|dene|deni|doon|dun|dedo|dedun|give|bhej|bhejo|send|transfer|add|record|create|deposit|topup|edit|update|delete|remove|move|spend|kharch|kharcha|save|bacha|bachana|invest|budget|plan|should|chahiye|karun|karoon|karna|karo|udhaar|udhar|qarz|loan|maang|maangna|withdraw|nikal|nikalo|jama|daal|dalo|agar|if|would|could)\b/u
+
+function isGeneralBalanceQuestion(input: string): boolean {
+  if (GENERAL_BALANCE_EXCLUDE.test(input)) return false
+  return GENERAL_BALANCE_MONEY.test(input) && GENERAL_BALANCE_ASK.test(input)
+}
+
+// The total across active accounts, reported from the account records
+// themselves. Accounts whose stored type contradicts a canonical name are not
+// silently folded into a total, and an empty record set says so rather than
+// implying a zero balance is a real reading.
+function generalBalanceAnswer(
+  context: AssistantFinancialContext,
+  language: 'english' | 'roman-urdu',
+): AssistantResponse {
+  const inconsistent = context.accounts.filter((account) => !isAccountTypeConsistent(account))
+  if (inconsistent.length) {
+    const label = inconsistent.map((account) => account.name).join(', ')
+    return {
+      intent: 'available-balance',
+      text: language === 'roman-urdu'
+        ? `${label} ka saved account type us ke naam se match nahi karta, is liye main total balance confirm nahi kar sakta. Profile ke Accounts section mein account type theek kar dein.`
+        : `The saved account type for ${label} does not match its name, so I cannot confirm your total balance. Please correct the account type in Profile under Accounts.`,
+    }
+  }
+  if (!context.accounts.length) {
+    return {
+      intent: 'available-balance',
+      text: language === 'roman-urdu'
+        ? 'Abhi aap ke records mein koi active account add nahi hai, is liye balance batane ke liye kuch mojood nahi.'
+        : 'There is no active account in your records yet, so there is no balance to report.',
+    }
+  }
+  const total = context.accounts.reduce((sum, account) => sum + account.balance, 0)
+  return {
+    intent: 'available-balance',
+    text: language === 'roman-urdu'
+      ? 'Yeh aap ke active accounts ka current recorded total hai.'
+      : 'This is the current recorded total across your active accounts.',
+    insight: {
+      title: 'Total balance',
+      metrics: [{ label: 'Total balance', amount: total }],
+      rows: context.accounts.map((account) => ({ label: account.name, amount: account.balance })),
+    },
+  }
 }
 
 export function getAuthoritativeAccountBalanceAnswer(
@@ -240,7 +370,12 @@ export function getAuthoritativeAccountBalanceAnswer(
     const label = normalise(account.name)
     return label.length > 1 && input.includes(label)
   })
-  if (!requestedType && !namedAccounts.length) return undefined
+  if (!requestedType && !namedAccounts.length) {
+    // No account and no type named. A general balance read is still
+    // authoritative and answered from the records; anything else is a
+    // conversation and stays with the model.
+    return isGeneralBalanceQuestion(input) ? generalBalanceAnswer(context, language) : undefined
+  }
 
   const accounts = namedAccounts.length
     ? namedAccounts
@@ -288,6 +423,8 @@ export function getDeterministicFinancialAnswer(
   context: AssistantFinancialContext,
 ): AssistantResponse | undefined {
   const input = normalise(question)
+  if (isAssistantActionCommand(input)) return undefined
+  if (/\b(should|chahiye|advice|suggest|recommend|reduce|improve|plan|budget|if|agar|would|could)\b/u.test(input)) return undefined
   const accountAnswer = getAuthoritativeAccountBalanceAnswer(question, context)
   if (accountAnswer) return accountAnswer
 

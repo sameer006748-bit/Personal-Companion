@@ -1,0 +1,23 @@
+{
+  "name": "Personal Companion",
+  "short_name": "Companion",
+  "description": "A calm personal finance companion for everyday planning.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#182323",
+  "theme_color": "#182323",
+  "icons": [
+    {
+      "src": "/icons/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

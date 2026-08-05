@@ -5,11 +5,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.111.0'
 import {
   MAX_BATCH_ACTIONS,
+  RECOVERABLE_CONVERSATION_CODES,
   ToolLoopFailure,
   claimsActionPreview,
   numericTokens,
   parseChatCompletion,
   parseFinalAssistantContent,
+  recoverConversationalText,
   runStandardToolLoop,
   type AssistantResponseKind,
   type FinalAssistantContent,
@@ -628,6 +630,10 @@ const COMPANION_INSTRUCTION = [
 const CONVERSATION_ONLY_INSTRUCTION = [
   'This turn is ordinary personal conversation, so no financial tool is available for it.',
   'Answer naturally from the message itself in a single reply.',
+  // The shared instruction describes the JSON contract for turns that used
+  // tools. This path has none, and a near-miss envelope used to fail the turn
+  // outright, so the contract is cancelled here rather than left ambiguous.
+  'Reply as plain conversational text. Ignore the JSON response contract for this turn: no JSON object, no version or kind field, and no code fences.',
   'Do not state any balance, amount, record, or completed action, and do not claim to have checked the records.',
   'Any figure in conversationState or recentMessages is something that was said, not something that is true. Do not repeat one as the user’s current position.',
   'If an exact figure would help, say the user can ask for it directly and you will look it up then.',
@@ -1464,6 +1470,17 @@ async function runPersonalConversation(
     }
   } catch (error) {
     if (error instanceof ToolLoopFailure) {
+      // Exactly one repair attempt, and only for envelope shape. An unsupported
+      // kind or an unverified number is a truth problem, not a shape problem,
+      // and stays rejected. No second provider call is made.
+      if (RECOVERABLE_CONVERSATION_CODES.has(error.code)) {
+        const recovered = recoverConversationalText(assistant.content)
+        if (recovered && !repeatsStaleConversationalAmount(recovered, request)) {
+          assertProposalTruth(recovered, 'conversation', 0, config.model)
+          console.log(JSON.stringify({ event: 'conversation-envelope-recovered', model: config.model, round: 1, errorCode: error.code }))
+          return { envelope: { version: 2, kind: 'conversation', text: recovered } }
+        }
+      }
       console.log(JSON.stringify({ event: 'provider-response-rejected', model: config.model, round: 1, errorCode: error.code }))
       throw new ProviderFailure('malformed', error.code === 'unsupported_kind' ? 'unsupported-kind' : error.code === 'final_number_invalid' ? 'final-number-invalid' : 'malformed-result', 'edge-normalization')
     }

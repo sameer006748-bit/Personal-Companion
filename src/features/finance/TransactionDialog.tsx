@@ -65,7 +65,13 @@ export function TransactionDialog({ onClose, transaction }: TransactionDialogPro
   }
 
   return (
-    <div className="finance-dialog-backdrop" role="presentation">
+    <div
+      className="finance-dialog-backdrop"
+      role="presentation"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onClose()
+      }}
+    >
       <section className="finance-dialog glass-surface" role="dialog" aria-modal="true" aria-labelledby="transaction-dialog-title">
         <header>
           <div><p className="eyebrow">Local transaction</p><h2 id="transaction-dialog-title">{transaction ? 'Edit transaction' : 'Add transaction'}</h2></div>

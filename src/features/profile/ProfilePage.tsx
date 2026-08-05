@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Check,
   ChevronRight,
@@ -93,6 +93,21 @@ export function ProfilePage() {
   const [editInitialsError, setEditInitialsError] = useState('')
   const [savedMessage, setSavedMessage] = useState('')
   const [activeTab, setActiveTab] = useState<ProfileTab>('overview')
+  const tabsRef = useRef<HTMLElement | null>(null)
+
+  // The tab strip scrolls horizontally, so the selected tab can sit outside the
+  // visible range after a selection (or on a narrow phone, on first paint).
+  // Bring it back into view without touching which tab is active.
+  useEffect(() => {
+    const active = tabsRef.current?.querySelector<HTMLButtonElement>('button.is-active')
+    if (!active) return
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    active.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      inline: 'nearest',
+      block: 'nearest',
+    })
+  }, [activeTab])
 
   const showSaved = useCallback((msg: string) => {
     setSavedMessage(msg)
@@ -174,7 +189,7 @@ export function ProfilePage() {
           {savedMessage}
         </div>
       )}
-      <nav className="profile-tabs glass-surface" aria-label="Profile sections">
+      <nav className="profile-tabs" aria-label="Profile sections" ref={tabsRef}>
         {profileTabs.map((tab) => <button key={tab.id} type="button" className={activeTab === tab.id ? 'is-active' : ''} aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => setActiveTab(tab.id)}>{tab.label}</button>)}
       </nav>
 
@@ -242,7 +257,7 @@ function PersonalizationForm({ initial, onSave }: { initial: AssistantPersonaliz
 }
 
 function TextField({ id, label, value, limit, multiline = false, onChange }: { id: string; label: string; value: string; limit: number; multiline?: boolean; onChange: (value: string) => void }) {
-  return <div className="profile-field personalization-field"><label htmlFor={id}>{label}</label>{multiline ? <textarea id={id} rows={3} value={value} maxLength={limit} onChange={(event) => onChange(event.target.value)} /> : <input id={id} type="text" value={value} maxLength={limit} onChange={(event) => onChange(event.target.value)} />}<small>{value.length}/{limit}</small></div>
+  return <div className="profile-field personalization-field"><div className="personalization-field-head"><label htmlFor={id}>{label}</label><small>{value.length}/{limit}</small></div>{multiline ? <textarea id={id} rows={2} value={value} maxLength={limit} onChange={(event) => onChange(event.target.value)} /> : <input id={id} type="text" value={value} maxLength={limit} onChange={(event) => onChange(event.target.value)} />}</div>
 }
 
 function MemorySection({ enabled, memories, onEnabled, onForget, onClear }: { enabled: boolean; memories: readonly AssistantMemory[]; onEnabled: (value: boolean) => void; onForget: (value: string) => void; onClear: () => void }) {

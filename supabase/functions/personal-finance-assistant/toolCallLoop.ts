@@ -3,6 +3,16 @@ export const MAX_TOOL_ROUNDS = 2
 export const MAX_BATCH_ACTIONS = 5
 /** Upper bound on tool calls the provider may request in one message. */
 export const MAX_TOOL_CALLS_PER_MESSAGE = 8
+/** Budget for the user-visible answer, after the envelope has been parsed. */
+export const FINAL_TEXT_LIMIT = 1_200
+/**
+ * Budget for the raw provider content string. This is deliberately larger than
+ * FINAL_TEXT_LIMIT: the content is the JSON envelope that *carries* the answer,
+ * not the answer itself. Capping it at the answer budget guillotined valid JSON
+ * mid-string, so a reply that parsed fine as prose failed as JSON. Still a hard
+ * bound, and comfortably above what the provider's max_tokens can emit.
+ */
+export const PROVIDER_CONTENT_LIMIT = 8_000
 
 export type AssistantResponseKind =
   | 'conversation'
@@ -116,7 +126,7 @@ export function parseChatCompletion(payload: unknown): ProviderMessage {
   if (!message) throw new ToolLoopFailure('provider_message_shape')
 
   const content = typeof message.content === 'string'
-    ? sanitiseText(message.content, 1_200)
+    ? sanitiseText(message.content, PROVIDER_CONTENT_LIMIT)
     : null
   let toolCalls: ProviderToolCall[] = []
   if (message.tool_calls !== undefined) {
@@ -187,6 +197,7 @@ export function parseFinalAssistantContent(
 ): FinalAssistantContent {
   const trimmed = raw.trim()
   let textValue = trimmed
+  let declaredText = false
   let kind: AssistantResponseKind | undefined
   let followUps: { id: string; label: string }[] = []
   let financeItems: { label: string; detail?: string; amount?: number }[] = []
@@ -199,6 +210,7 @@ export function parseFinalAssistantContent(
       throw new ToolLoopFailure('final_schema_invalid')
     }
     textValue = parsed.text
+    declaredText = true
     kind = responseKind(parsed.kind)
     if (parsed.kind !== undefined && !kind) throw new ToolLoopFailure('unsupported_kind')
     if (parsed.followUps !== undefined && !Array.isArray(parsed.followUps)) {
@@ -241,8 +253,12 @@ export function parseFinalAssistantContent(
     }
   }
 
-  const text = sanitiseText(textValue, 1_200)
-  if (textValue.length > 1_200 || text.length < 2 || /https?:\/\/|<[a-z/]|```/iu.test(text)) {
+  const text = sanitiseText(textValue, FINAL_TEXT_LIMIT)
+  // A declared JSON `text` field over budget is a contract violation and stays
+  // rejected. Plain prose is truncated to the same budget instead, which is what
+  // already happened while the provider content arrived pre-truncated.
+  if ((declaredText && textValue.length > FINAL_TEXT_LIMIT) || text.length < 2 ||
+      /https?:\/\/|<[a-z/]|```/iu.test(text)) {
     throw new ToolLoopFailure('final_text_invalid')
   }
   if (kind === 'finance_summary' || kind === 'finance_list' || kind === 'finance_detail' || requireAuthoritativeNumbers) {
@@ -251,6 +267,102 @@ export function parseFinalAssistantContent(
     }
   }
   return { text, ...(kind ? { kind } : {}), ...(followUps.length ? { followUps } : {}), ...(financeItems.length ? { financeItems } : {}), ...(memoryCandidate ? { memoryCandidate } : {}) }
+}
+
+const FENCE_PATTERN = /^```[a-z]*\s*([\s\S]*?)\s*```$/iu
+/** Keys a provider realistically uses for the spoken part of a reply. */
+const CONVERSATIONAL_TEXT_KEYS = ['text', 'message', 'content', 'reply', 'answer'] as const
+/** Wrapper keys worth unwrapping exactly one level of. */
+const WRAPPER_KEYS = ['response', 'result', 'data', 'output'] as const
+/** Envelope shapes worth one repair attempt. Never a bad number or bad kind. */
+export const RECOVERABLE_CONVERSATION_CODES: ReadonlySet<ToolLoopErrorCode> = new Set([
+  'final_json_malformed', 'final_schema_invalid', 'final_text_invalid',
+])
+
+/** First balanced top-level object, so a trailing sentence cannot break parsing. */
+function firstJsonObject(value: string): string | undefined {
+  let depth = 0
+  let inString = false
+  let escaped = false
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (character === '\\') escaped = true
+      else if (character === '"') inString = false
+      continue
+    }
+    if (character === '"') inString = true
+    else if (character === '{') depth += 1
+    else if (character === '}') {
+      depth -= 1
+      if (depth === 0) return value.slice(0, index + 1)
+    }
+  }
+  return undefined
+}
+
+/**
+ * Recovery is for talk. A payload that gestures at money, an action, or a memory
+ * is never repaired into a conversation: it stays rejected, so nothing
+ * unverified can reach the user as a statement about their records.
+ */
+function refusesRecovery(parsed: Record<string, unknown>): boolean {
+  if (parsed.financeItems !== undefined || parsed.actionProposal !== undefined ||
+      parsed.actionBatch !== undefined || parsed.actions !== undefined ||
+      parsed.memoryCandidate !== undefined) return true
+  const kind = parsed.kind
+  return typeof kind === 'string' &&
+    kind !== 'conversation' && kind !== 'advice' && kind !== 'clarification'
+}
+
+/** Unwraps at most one wrapper level, and only when it carries nothing else. */
+function unwrapOnce(parsed: Record<string, unknown>): Record<string, unknown> {
+  if (Object.keys(parsed).length !== 1) return parsed
+  for (const key of WRAPPER_KEYS) {
+    const inner = objectRecord(parsed[key])
+    if (inner) return inner
+  }
+  return parsed
+}
+
+function textFromLooseObject(value: string): string | undefined {
+  const slice = firstJsonObject(value)
+  if (!slice) return undefined
+  let root: Record<string, unknown> | undefined
+  try { root = objectRecord(JSON.parse(slice)) } catch { return undefined }
+  if (!root) return undefined
+  const parsed = unwrapOnce(root)
+  if (refusesRecovery(parsed)) return undefined
+  for (const key of CONVERSATIONAL_TEXT_KEYS) {
+    const candidate = parsed[key]
+    if (typeof candidate === 'string' && candidate.trim()) return candidate
+  }
+  return undefined
+}
+
+/**
+ * One bounded structural repair, for ordinary conversation only.
+ *
+ * The tool-free fast path attaches no tool and supplies no balance, record, or
+ * amount, so a reply there can only ever be talk. When the provider wraps that
+ * talk in a near-miss envelope — a code fence, a sentence after the closing
+ * brace, a missing `version`, one wrapper level — strict parsing rejects it and
+ * an ordinary "how are you" comes back as a generic unavailable message.
+ *
+ * This recovers the spoken text and nothing else. It cannot yield follow-ups,
+ * finance items, amounts as data, an action draft, a memory draft, or any kind
+ * other than conversation, and it runs exactly once with no provider call. The
+ * caller still applies the stale-amount guard and the proposal truth invariant.
+ */
+export function recoverConversationalText(raw: string): string | undefined {
+  const fenced = FENCE_PATTERN.exec(raw.trim())
+  const unfenced = (fenced ? fenced[1] : raw).trim()
+  const candidate = unfenced.startsWith('{') ? textFromLooseObject(unfenced) : unfenced
+  if (candidate === undefined) return undefined
+  const text = sanitiseText(candidate, FINAL_TEXT_LIMIT)
+  if (text.length < 2 || /https?:\/\/|<[a-z/]|```/iu.test(text)) return undefined
+  return text
 }
 
 interface RunToolLoopOptions<Action, Memory> {

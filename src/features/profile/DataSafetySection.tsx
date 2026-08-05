@@ -215,7 +215,7 @@ export function DataSafetySection({ user }: { user: User | null }) {
       </p>}
 
       <div className="cloud-sync-actions">
-        <button type="button" className="finance-dialog-save" disabled={!canConfirm} onClick={confirmRestore}>
+        <button type="button" className="finance-dialog-save is-destructive" disabled={!canConfirm} onClick={confirmRestore}>
           {busy ? 'Restoring' : 'Replace local data'}
         </button>
         <button type="button" disabled={busy} onClick={reset}>Cancel</button>

@@ -77,7 +77,7 @@ export function SyncStatusRow({
     <p>{lastSyncedAt ? `Last synced ${moment(lastSyncedAt)}` : 'Not synced yet'}</p>
     <button
       type="button"
-      className="auth-secondary"
+      className="finance-dialog-save cloud-primary-action"
       disabled={isSyncing || status === 'auth-required' || status === 'local-only'}
       onClick={onSyncNow}
     >

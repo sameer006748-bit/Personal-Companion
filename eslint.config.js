@@ -8,7 +8,8 @@ export default tseslint.config(
   {
     // Edge Functions are Deno modules with their own runtime and globals; they are
     // not part of the browser app's TypeScript project.
-    ignores: ['dist', 'coverage', 'graphify-out', 'supabase/functions'],
+    // android/ is the generated Capacitor platform project and Gradle build output.
+    ignores: ['dist', 'coverage', 'graphify-out', 'supabase/functions', 'android'],
   },
   {
     files: ['**/*.{ts,tsx}'],

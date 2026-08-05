@@ -43,7 +43,7 @@ export function OnboardingActions({
   isFinish = false,
 }: OnboardingActionsProps) {
   return (
-    <footer className="onboarding-actions">
+    <footer className={`onboarding-actions${step === 1 ? ' onboarding-actions--welcome' : ''}`}>
       {step > 1 ? (
         <button type="button" className="glass-control onboarding-secondary-action" onClick={onBack}>
           <ArrowLeft aria-hidden="true" />

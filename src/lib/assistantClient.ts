@@ -403,13 +403,15 @@ export async function askAssistant(
   localFallback: AssistantResponse,
 ): Promise<AssistantOutcome> {
   const startedAt = performance.now()
-  const fallback = (reason: AssistantFallbackReason, details?: AssistantSafeDiagnostic): AssistantOutcome => ({
-    response: localFallback,
-    source: 'local',
-    reason,
-    ...(details ? { diagnostic: details } : {}),
-    timingsMs: { total: Math.round(performance.now() - startedAt) },
-  })
+  const fallback = (reason: AssistantFallbackReason, details?: AssistantSafeDiagnostic): AssistantOutcome => {
+    return {
+      response: localFallback,
+      source: 'local',
+      reason,
+      ...(details ? { diagnostic: details } : {}),
+      timingsMs: { total: Math.round(performance.now() - startedAt) },
+    }
+  }
 
   if (!isAiAssistantEnabled()) return fallback('opted-out')
   if (!supabase || getCloudConfiguration().state !== 'configured') return fallback('not-configured')

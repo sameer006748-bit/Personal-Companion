@@ -5,6 +5,7 @@ import {
   createAssistantProposalFromDraft,
   getAuthoritativeAccountBalanceAnswer,
   getDeterministicFinancialAnswer,
+  parseDeterministicActionDraft,
 } from './assistantFinance'
 import {
   createMemoryProposal,
@@ -44,13 +45,19 @@ export interface AssistantOrchestratorOptions {
   turnId?: string
 }
 
-export interface AssistantOrchestratorResult {
-  kind: 'append'
-  message: AssistantMessage
-  replaceMessageId?: string
-  replacementMessage?: AssistantMessage
-  forgetMemoryQuery?: string
-}
+export type AssistantOrchestratorResult =
+  | {
+    kind: 'append'
+    message: AssistantMessage
+    replaceMessageId?: string
+    replacementMessage?: AssistantMessage
+    forgetMemoryQuery?: string
+  }
+  | {
+    kind: 'replace'
+    replaceMessageId: string
+    replacementMessage: AssistantMessage
+  }
 
 function normalise(value: string): string {
   return value.toLocaleLowerCase().replaceAll(/[^a-z0-9\s]/gu, ' ').replaceAll(/\s+/gu, ' ').trim()
@@ -66,6 +73,59 @@ function isExplicitCancel(question: string): boolean {
     'cancel', 'cancel it', 'cancel this', 'cancel kar do', 'cancel kar dein', 'no', 'nahi', 'nahin',
     'band kar do', 'band karo', 'rehne do', 'rehne dein', 'never mind', 'nevermind',
   ]).has(command)
+}
+
+// Greetings are answered by the app, not the provider. A greeting carries no
+// financial question, so a round trip can only add latency, and when the
+// provider or its usage check is unavailable it turns "Hello" into an error
+// notice. Matched as a whole message, so "hello, balance kitna hai" still
+// routes as the balance question it actually is.
+const GREETINGS = new Set([
+  'hello', 'hello there', 'helo', 'hi', 'hi there', 'hii', 'hiii', 'hey', 'hey there', 'heyy',
+  'salam', 'salaam', 'slam', 'salam alaikum', 'salaam alaikum', 'assalam o alaikum',
+  'assalam u alaikum', 'assalamu alaikum', 'assalamualaikum', 'asalam o alaikum',
+  'asalamualaikum', 'aslam o alaikum', 'aoa', 'good morning', 'good afternoon', 'good evening',
+])
+
+function isGreeting(question: string): boolean {
+  return GREETINGS.has(normalise(question))
+}
+
+// A short confirmation continues the previous request rather than starting a
+// new one. It is only ever resolved against local records, and never while a
+// preview is pending, because there "han" means confirm this action.
+const AFFIRMATIVE_FOLLOW_UPS = new Set([
+  'han', 'haan', 'ha', 'han ji', 'haan ji', 'yes', 'yes please', 'yep', 'ok', 'okay', 'theek hai',
+  'check', 'check kro', 'check karo', 'check kar do', 'check kardo', 'han check kro',
+  'han check karo', 'haan check kro', 'haan check karo', 'yes check', 'yes check it',
+  'please check', 'batao', 'bata do', 'bta do', 'han batao', 'haan batao', 'dekho', 'dekh lo',
+  'zara dekho',
+])
+
+function isAffirmativeFollowUp(question: string): boolean {
+  return AFFIRMATIVE_FOLLOW_UPS.has(normalise(question))
+}
+
+// The provider occasionally replies that it cannot reach the records, or
+// promises to go and check them. Both are false: the records travel with the
+// request, and nothing runs after the turn to fulfil a promise. These are
+// corrected locally rather than shown.
+const DENIES_RECORD_ACCESS =
+  /(pahunch nahi|pohnch nahi|rasai nahi|records? tak access nahi|local (data|records?) (is|are) (not|un)available|access nahi|nahi dekh sakta|nahi dekh sakti|dekh nahi sakta|dekh nahi sakti|no access to your|do not have access|don't have access|cannot access your|can't access your|unable to access your|not able to access your|do not have visibility|cannot see your|can't see your)/iu
+const PROMISES_TO_CHECK =
+  /(check kar raha hoon|check kar rahi hoon|check karta hoon|check karti hoon|dekh raha hoon|dekh rahi hoon|thori der baad|thodi der baad|baad mein bata|later (reply|respond|tell|check)|let me check|i'?ll check|i will check|i am checking|i'?m checking|checking your|one moment|hold on)/iu
+
+function serviceUnavailableText(language: 'english' | 'roman-urdu'): string {
+  return language === 'roman-urdu'
+    ? 'AI service abhi available nahi, lekin main aapka balance, transactions, receivables aur payables local records se bata sakta hoon.'
+    : 'The AI service is not available right now, but I can tell you your balance, transactions, receivables and payables from your local records.'
+}
+
+function hasLocalFinanceRecords(context: ReturnType<typeof buildAssistantFinancialContext>): boolean {
+  return Boolean(
+    context.accounts.length || context.recentTransactions.length || context.receivables.length ||
+    context.payables.length || context.commitments.length,
+  )
 }
 
 function findLastPendingProposal(messages: readonly AssistantMessage[]): AssistantMessage | undefined {
@@ -256,12 +316,10 @@ function fallbackResponse(options: AssistantOrchestratorOptions): AssistantRespo
   const profile = responseProfile(options)
   const contextual = contextualFallbackText(options.input.text, profile.language)
   if (contextual) return { intent: 'unknown', text: contextual }
-  return {
-    intent: 'unknown',
-    text: profile.language === 'roman-urdu'
-      ? 'AI companion abhi available nahi hai. Main is message ka mukammal contextual jawab nahi de saka.'
-      : 'The AI companion is unavailable, so I could not provide a complete contextual answer to this message.',
-  }
+  // A failed provider call is not a failure of the app. The records are still
+  // here, so the fallback offers what it can actually answer instead of
+  // reporting an outage the user can do nothing about.
+  return { intent: 'unknown', text: serviceUnavailableText(profile.language) }
 }
 
 // The only pre-model route left on the pending-proposal path. Cancelling is a
@@ -275,22 +333,16 @@ function resolveExplicitCancel(
 ): AssistantOrchestratorResult | undefined {
   const existing = findLastPendingPreview(options.messages)
   if (!existing || !isExplicitCancel(options.input.text)) return undefined
-  const now = Date.now()
   return {
-    kind: 'append',
+    kind: 'replace',
     replaceMessageId: existing.id,
     replacementMessage: {
       ...existing,
+      text: existing.batch
+        ? 'Actions cancelled. Nothing changed.'
+        : 'Action cancelled. Nothing changed.',
       ...(existing.proposal ? { proposal: { ...existing.proposal, status: 'cancelled' as const } } : {}),
       ...(existing.batch ? { batch: { ...existing.batch, status: 'cancelled' as const } } : {}),
-      statusNote: 'Action cancelled',
-    },
-    message: {
-      id: assistantMessageId(options, now),
-      role: 'assistant',
-      text: 'The pending action has been cancelled. Nothing was recorded.',
-      timestamp: now,
-      source: 'local',
       statusNote: 'Action cancelled',
     },
   }
@@ -316,14 +368,88 @@ function localMemoryInspection(options: AssistantOrchestratorOptions): Assistant
     : { kind: 'append', message }
 }
 
+// The name the user is addressed by. The personalization profile wins when it
+// carries one; otherwise the first name from the profile is used, and an empty
+// name simply drops out of the sentence.
+function preferredAddressName(
+  options: AssistantOrchestratorOptions,
+  profile: AssistantPersonalizationProfile,
+): string {
+  const preferred = profile.preferredName?.trim()
+  if (preferred) return preferred
+  const full = options.settings.profile.fullName?.trim() ?? ''
+  return full.split(/\s+/u)[0] ?? ''
+}
+
+// A greeting is answered here so that saying hello never depends on the
+// provider, its usage check, or the network. It states no financial fact and
+// never mentions service availability.
+function localGreeting(options: AssistantOrchestratorOptions): AssistantOrchestratorResult | undefined {
+  if (!isGreeting(options.input.text)) return undefined
+  // While a preview is pending the greeting is not the whole turn, so the
+  // model keeps the context of the action awaiting confirmation.
+  if (findLastPendingPreview(options.messages)) return undefined
+  const profile = responseProfile(options)
+  const name = preferredAddressName(options, profile)
+  const now = Date.now()
+  return {
+    kind: 'append',
+    message: {
+      id: assistantMessageId(options, now),
+      role: 'assistant',
+      text: profile.language === 'roman-urdu'
+        ? `Hello${name ? ` ${name}` : ''}, aaj finances mein kis cheez mein help chahiye?`
+        : `Hello${name ? ` ${name}` : ''}, what would you like help with in your finances today?`,
+      timestamp: now,
+      source: 'local',
+      statusNote: 'Answered locally',
+    },
+  }
+}
+
+// "Han check kro" after an unanswered balance question is a continuation of
+// that question. It is resolved against the previous user message so the answer
+// comes from the records, which is what stops the provider from being asked to
+// guess what "check" referred to and inventing a lack of access.
+function resolvePendingLocalRead(
+  options: AssistantOrchestratorOptions,
+  context: ReturnType<typeof buildAssistantFinancialContext>,
+  profile: AssistantPersonalizationProfile,
+  contextMs: number,
+  startedAt: number,
+): AssistantOrchestratorResult | undefined {
+  if (!isAffirmativeFollowUp(options.input.text)) return undefined
+  // A pending preview makes a bare "han" a confirmation of that action, which
+  // is the confirmation flow's decision and never this one's.
+  if (findLastPendingPreview(options.messages)) return undefined
+  const previousUserText = [...options.messages].reverse().find((message) => message.role === 'user')?.text
+  if (!previousUserText) return undefined
+  const answer = getAuthoritativeAccountBalanceAnswer(previousUserText, context, profile.language)
+    ?? getDeterministicFinancialAnswer(previousUserText, context)
+  if (!answer) return undefined
+  const now = Date.now()
+  return {
+    kind: 'append',
+    message: {
+      id: assistantMessageId(options, now),
+      role: 'assistant',
+      text: personaliseAssistantText(answer.text, profile),
+      timestamp: now,
+      source: 'local',
+      statusNote: 'Answered from current account records',
+      performance: { timingsMs: { context: contextMs, total: Math.round(performance.now() - startedAt) }, roundCount: 0, toolsExposed: 0, toolsCalled: 0 },
+      ...(answer.insight ? { insight: answer.insight } : {}),
+    },
+  }
+}
+
 // A direct balance lookup keeps its established local path, because the local
 // records are the authority and a round trip could only restate them. It is
 // held to a short, self-contained question: anything longer is a conversation,
 // and a conversation belongs to the model even when it mentions an account.
 const DIRECT_LOOKUP_MAX_WORDS = 12
 
-function isDirectBalanceLookup(question: string, isFollowUp: boolean): boolean {
-  if (isFollowUp) return false
+function isDirectFinanceLookup(question: string): boolean {
   return normalise(question).split(' ').filter(Boolean).length <= DIRECT_LOOKUP_MAX_WORDS
 }
 
@@ -383,16 +509,19 @@ function buildActionBatch(
   }
 }
 
-// The turn is model-first. Only three things are decided before the model sees
-// the message, and none of them interpret what the user meant: an explicit
-// cancel, a local memory inspection, and a short direct balance lookup that the
-// records can answer exactly. Everything else — whether this is advice, an
-// action, a question or a memory — is the model's decision, and every financial
-// fact and action argument it returns is then validated locally before it can
-// reach the user or the store.
+// Routing is deliberately ordered from the most stateful and safety-sensitive
+// interpretation to the least. Pending controls win first. Supported action
+// commands are then prepared and validated locally before any read matcher can
+// see them. Account/general balance and other bounded finance reads use current
+// records, followed by greeting and conversational follow-up resolution. Only
+// genuinely open conversation reaches the provider and its useful local
+// fallback.
 export async function orchestrateAssistantTurn(
   options: AssistantOrchestratorOptions,
 ): Promise<AssistantOrchestratorResult> {
+  // 1. Pending confirmation / cancel / edit handling. Explicit cancellation is
+  // replace-only. Confirm and edit language remains in the existing pending
+  // proposal conversation flow and is never reinterpreted as a balance read.
   const cancelled = resolveExplicitCancel(options)
   if (cancelled) return cancelled
   const memoryInspection = localMemoryInspection(options)
@@ -402,10 +531,77 @@ export async function orchestrateAssistantTurn(
   const contextStartedAt = performance.now()
   const context = buildAssistantFinancialContext(options.data, options.finance, options.planning)
   const profile = responseProfile(options)
-  const request = buildAssistantProviderRequest(options)
   const contextMs = Math.round(performance.now() - contextStartedAt)
 
-  if (isDirectBalanceLookup(options.input.text, request.conversationState?.isFollowUp ?? false)) {
+  // 2. Action commands. The parser intentionally supports only unambiguous
+  // single-account income/expense commands, and the proposal domain performs
+  // the same account, amount and available-balance validation as provider
+  // drafts. No mutation occurs here; the result is only a confirmable preview.
+  const localDraft = parseDeterministicActionDraft(options.input.text, options.finance, context.today)
+  if (localDraft) {
+    const resolved = createAssistantProposalFromDraft(
+      localDraft,
+      options.finance,
+      options.planning,
+      now,
+      options.turnId ? `assistant-action-${options.turnId}` : undefined,
+    )
+    if (!resolved.proposal) {
+      return {
+        kind: 'append',
+        message: {
+          id: assistantMessageId(options, now),
+          role: 'assistant',
+          text: resolved.error ?? 'I need one clarification before I can prepare that action.',
+          timestamp: now,
+          source: 'local',
+          statusNote: 'Action proposal rejected locally',
+          diagnostic: {
+            code: resolved.error?.includes('available') ? 'local-record-not-found' : 'proposal-invalid',
+            stage: 'local-proposal-validation',
+            responseKind: 'action_proposal',
+            timingsMs: { context: contextMs, total: Math.round(performance.now() - contextStartedAt) },
+          },
+        },
+      }
+    }
+    const superseded = findLastPendingPreview(options.messages)
+    return {
+      kind: 'append',
+      ...(superseded
+        ? {
+          replaceMessageId: superseded.id,
+          replacementMessage: supersedePreview(
+            superseded,
+            'This preview was replaced by a newer proposal.',
+            'Action superseded',
+          ),
+        }
+        : {}),
+      message: {
+        id: assistantMessageId(options, now),
+        role: 'assistant',
+        text: profile.language === 'roman-urdu'
+          ? 'Preview tayyar hai. Confirm karne tak koi financial record change nahi hoga.'
+          : 'The preview is ready. No financial record will change until you confirm.',
+        timestamp: now,
+        source: 'local',
+        statusNote: 'Action requires confirmation',
+        proposal: resolved.proposal,
+        performance: {
+          timingsMs: { context: contextMs, total: Math.round(performance.now() - contextStartedAt) },
+          roundCount: 0,
+          toolsExposed: 0,
+          toolsCalled: 0,
+        },
+      },
+    }
+  }
+
+  if (isDirectFinanceLookup(options.input.text)) {
+    // 3 and 4. The finance helper checks named/type-specific accounts before its
+    // general balance branch. Its action/advice exclusions are the lower-level
+    // guard that prevents a write request from ever becoming a balance card.
     const authoritativeAccountAnswer = getAuthoritativeAccountBalanceAnswer(
       options.input.text,
       context,
@@ -426,8 +622,38 @@ export async function orchestrateAssistantTurn(
         },
       }
     }
+
+    // 5. Other deterministic finance reads use the same bounded local snapshot.
+    const deterministicAnswer = getDeterministicFinancialAnswer(options.input.text, context)
+    if (deterministicAnswer) {
+      return {
+        kind: 'append',
+        message: {
+          id: assistantMessageId(options, now),
+          role: 'assistant',
+          text: personaliseAssistantText(deterministicAnswer.text, profile),
+          timestamp: now,
+          source: 'local',
+          statusNote: 'Answered from current records',
+          performance: { timingsMs: { context: contextMs, total: Math.round(performance.now() - contextStartedAt) }, roundCount: 0, toolsExposed: 0, toolsCalled: 0 },
+          ...(deterministicAnswer.insight ? { insight: deterministicAnswer.insight } : {}),
+        },
+      }
+    }
   }
 
+  // 6. Provider-independent greeting.
+  const greeting = localGreeting(options)
+  if (greeting) return greeting
+
+  // 7. Conversational follow-up resolution. A pending preview blocks this route,
+  // leaving a bare affirmative to the existing confirmation semantics.
+  const pendingRead = resolvePendingLocalRead(options, context, profile, contextMs, contextStartedAt)
+  if (pendingRead) return pendingRead
+
+  // 8 and 9. Open conversation goes to the provider; failures receive a useful,
+  // truthful local fallback rather than a false statement about record access.
+  const request = buildAssistantProviderRequest(options)
   const localFallback = fallbackResponse(options)
   const outcome = await askAssistant(request, localFallback)
   let proposal: AssistantActionProposal | undefined
@@ -480,6 +706,19 @@ export async function orchestrateAssistantTurn(
     proposal = resolved.proposal
   }
 
+  // Provider prose that denies access to the records, or promises to go and
+  // check them, is corrected before it can be shown. The finance context
+  // travelled with the request, so the denial is false, and nothing runs after
+  // the turn to fulfil the promise. The local answer replaces it where the
+  // records can produce one; otherwise the turn offers what it can answer. No
+  // card is invented and no figure is stated that is not already a record.
+  const correction = !proposal && !batch && hasLocalFinanceRecords(context) &&
+    (DENIES_RECORD_ACCESS.test(outcome.response.text) || PROMISES_TO_CHECK.test(outcome.response.text))
+    ? getAuthoritativeAccountBalanceAnswer(options.input.text, context, profile.language)
+      ?? getDeterministicFinancialAnswer(options.input.text, context)
+      ?? { intent: 'unknown' as const, text: serviceUnavailableText(profile.language) }
+    : undefined
+
   const memoryProposal = outcome.memoryProposal && options.assistantMemory.enabled
     ? createMemoryProposal(
       outcome.memoryProposal.category,
@@ -495,13 +734,17 @@ export async function orchestrateAssistantTurn(
       },
     )
     : undefined
-  const statusNote = outcome.reason
-    ? ASSISTANT_FALLBACK_MESSAGES[outcome.reason]
-    : proposal || batch
-      ? 'Action requires confirmation'
-      : memoryProposal
-        ? 'Memory confirmation needed'
-        : 'Answered with AI companion'
+  const statusNote = correction
+    ? correction.insight
+      ? 'Answered from current account records'
+      : 'Answered locally'
+    : outcome.reason
+      ? ASSISTANT_FALLBACK_MESSAGES[outcome.reason]
+      : proposal || batch
+        ? 'Action requires confirmation'
+        : memoryProposal
+          ? 'Memory confirmation needed'
+          : 'Answered with AI companion'
 
   // A preview replaces the model's prose so the confirmation card is the only
   // thing describing what would change. Everything else keeps the model's own
@@ -525,9 +768,14 @@ export async function orchestrateAssistantTurn(
         ? profile.language === 'roman-urdu'
           ? 'Main is action ko confirm karne ke liye tayyar nahi kar saka, is liye kuch record nahi hua. Kya main isay dobara tayyar karun?'
           : 'I could not prepare that action for confirmation, so nothing was recorded. Would you like me to try preparing it again?'
-        : personaliseAssistantText(unclaimedPreviewText(outcome.response.text, profile.language), profile)
+        : correction
+          ? personaliseAssistantText(correction.text, profile)
+          : personaliseAssistantText(unclaimedPreviewText(outcome.response.text, profile.language), profile)
 
-  const followUps = outcome.response.followUps?.slice(0, 1)
+  // A corrected turn drops the provider's follow-ups too: they were written to
+  // continue prose that is no longer being shown.
+  const followUps = correction ? undefined : outcome.response.followUps?.slice(0, 1)
+  const insight = correction ? correction.insight : outcome.response.insight
 
   // A new preview supersedes an older pending one, so two confirmable actions
   // can never be live at the same time.
@@ -552,7 +800,7 @@ export async function orchestrateAssistantTurn(
       timestamp: now,
       source: outcome.source,
       statusNote,
-      ...(outcome.response.insight ? { insight: outcome.response.insight } : {}),
+      ...(insight ? { insight } : {}),
       ...(followUps?.length ? { followUps } : {}),
       ...(proposal ? { proposal } : {}),
       ...(batch ? { batch } : {}),
