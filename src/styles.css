@@ -10,62 +10,84 @@
   --color-positive: var(--positive);
   --color-negative: var(--negative);
 }
+/* Light theme - Warm Sage.
+   A warm cream/ivory canvas with a very restrained sage environmental tint and
+   deep teal accents. Glass surfaces are warm off-white rather than pure white
+   so cards stay low-glare, and the ambient wash sits deliberately between the
+   old mint-fog level and the sterile near-white correction. */
 :root {
   color-scheme: light;
-  --canvas: #ece9e2;
-  --canvas-deep: #d7ded9;
-  --ink: #111d1c;
-  --ink-secondary: #2d524c;
-  --ink-tertiary: #47615b;
+  /* Canvas sits a touch deeper than the card surfaces so glass reads as
+     genuinely raised. Cards stay off pure white; the separation comes from
+     dropping the canvas, not from brightening the cards. */
+  --canvas: #efeade;
+  --canvas-deep: #ded9c9;
+  --ink: #17201d;
+  --ink-secondary: #3d4f49;
+  --ink-tertiary: #5e6d67;
   --accent: #327973;
   --accent-strong: #175f5a;
   --accent-ink: #f3fffc;
   --positive: #28745a;
   --negative: #a94f4d;
-  --ambient-cool: rgb(111 155 170 / 0.19);
-  --ambient-cyan: rgb(48 143 134 / 0.15);
-  --glass-control-bg: rgb(250 252 249 / 0.86);
-  --glass-surface-bg: rgb(248 250 248 / 0.88);
-  --glass-elevated-bg: rgb(246 249 247 / 0.72);
-  --glass-hero-bg: rgb(238 246 241 / 0.78);
-  --glass-inset-bg: rgb(255 255 255 / 0.55);
-  --glass-border: rgb(103 124 118 / 0.28);
-  --glass-border-lower: rgb(47 74 71 / 0.28);
-  --glass-highlight: rgb(255 255 255 / 0.88);
-  --glass-reflection: rgb(255 255 255 / 0.34);
-  --glass-caustic: rgb(191 236 230 / 0.28);
-  --glass-rim: rgb(255 255 255 / 0.64);
-  --glass-shadow: rgb(45 72 69 / 0.14);
-  --glass-shadow-deep: rgb(34 58 56 / 0.24);
-  --glass-lower-shade: rgb(44 70 67 / 0.13);
-  --lens-core: rgb(245 255 252 / 0.76);
-  --lens-edge: rgb(255 255 255 / 0.88);
-  --lens-pool: rgb(132 205 196 / 0.24);
-  --nav-shell-bg: rgb(243 249 246 / 0.08);
-  --nav-shell-border: rgb(255 255 255 / 0.5);
-  --nav-shell-highlight: rgb(255 255 255 / 0.78);
-  --nav-shell-lower: rgb(42 70 66 / 0.22);
+  --ambient-cool: rgb(139 156 132 / 0.1);
+  --ambient-cyan: rgb(48 143 134 / 0.075);
+  --glass-control-bg: rgb(253 251 245 / 0.88);
+  --glass-surface-bg: rgb(252 250 244 / 0.9);
+  --glass-elevated-bg: rgb(254 252 247 / 0.8);
+  --glass-hero-bg: rgb(251 248 241 / 0.85);
+  --glass-inset-bg: rgb(255 253 248 / 0.56);
+  /* Warm-neutral borders: enough edge definition to separate a card from the
+     canvas without reading as a drawn outline. */
+  --glass-border: rgb(112 108 88 / 0.3);
+  --glass-border-lower: rgb(66 62 50 / 0.3);
+  --glass-highlight: rgb(255 254 250 / 0.88);
+  --glass-reflection: rgb(255 253 248 / 0.34);
+  --glass-caustic: rgb(168 205 196 / 0.2);
+  --glass-rim: rgb(255 253 248 / 0.7);
+  /* Directional rather than foggy: tighter alpha, cast downward by the
+     component-level offsets instead of spreading evenly. */
+  --glass-shadow: rgb(66 60 44 / 0.16);
+  --glass-shadow-deep: rgb(46 42 32 / 0.28);
+  --glass-lower-shade: rgb(60 56 44 / 0.13);
+  --lens-core: rgb(253 252 247 / 0.74);
+  --lens-edge: rgb(255 254 250 / 0.88);
+  --lens-pool: rgb(110 168 160 / 0.16);
+  --nav-shell-bg: rgb(250 247 240 / 0.07);
+  --nav-shell-border: rgb(255 253 248 / 0.5);
+  --nav-shell-highlight: rgb(255 254 250 / 0.78);
+  --nav-shell-lower: rgb(62 60 50 / 0.2);
   --nav-shell-brightness: 1.01;
-  --nav-label: #435855;
+  --nav-label: #4c5b56;
   --nav-active-label: #124f4a;
-  --nav-lens-bg: rgb(240 253 249 / 0.78);
-  --nav-lens-border: rgb(255 255 255 / 0.9);
-  --nav-lens-reflection: rgb(255 255 255 / 0.54);
-  --nav-lens-lower: rgb(38 85 78 / 0.22);
-  --nav-lens-pool: rgb(99 179 169 / 0.17);
+  --nav-lens-bg: rgb(252 250 245 / 0.76);
+  --nav-lens-border: rgb(255 254 250 / 0.9);
+  --nav-lens-reflection: rgb(255 253 248 / 0.54);
+  --nav-lens-lower: rgb(44 76 72 / 0.2);
+  --nav-lens-pool: rgb(80 158 150 / 0.14);
   --nav-lens-brightness: 1.02;
-  --control-solid: #f4f8f6;
-  --surface-solid: #edf2f0;
-  --elevated-solid: #f0f5f3;
-  --hero-solid: #e7f0ed;
+  --control-solid: #faf7f1;
+  --surface-solid: #f3f0e9;
+  --elevated-solid: #f7f4ee;
+  --hero-solid: #efece4;
   /* Form-surface tokens. Editing surfaces need stronger visual isolation than
      decorative glass cards, so these sit between the decorative glass tokens
-     and the solid fallbacks. They preserve the smoky graphite / petrol identity
-     while keeping background content from bleeding through inputs. */
-  --field-bg: rgb(247 249 247 / 0.94);
-  --field-border: rgb(255 255 255 / 0.72);
-  --field-border-lower: rgb(47 74 71 / 0.28);
+     and the solid fallbacks. They preserve the warm sage identity while keeping
+     background content from bleeding through inputs. */
+  --field-bg: rgb(253 251 246 / 0.94);
+  --field-border: rgb(255 253 248 / 0.72);
+  --field-border-lower: rgb(72 78 70 / 0.26);
   --field-focus-ring: rgb(95 184 174 / 0.22);
+  /* Shared semantic tones. Category and action colours resolve from here in
+     both themes so no component block hardcodes a one-off colour. */
+  --tone-income: #2f7a5c;
+  --tone-expense: #b0554d;
+  --tone-plan: #6a58a4;
+  --tone-assistant: #1f6b66;
+  --tone-groceries: #47804f;
+  --tone-salary: #8f6b2c;
+  --tone-bills: #2f6d88;
+  --tone-neutral: #5e6d67;
   --distribution-cash: #82aca8;
   --distribution-bank: #296f69;
   --distribution-wallet: #b7a27a;
@@ -100,6 +122,7 @@
      being re-tuned per feature. */
   --page-inline: 1rem;
   --section-gap: 0.85rem;
+  --home-gap: 0.85rem;
   --card-pad: 1rem;
   --card-pad-tight: 0.85rem;
   --row-gap: 0.65rem;
@@ -113,7 +136,10 @@
   --nav-block: calc(
     var(--nav-height) + var(--nav-inset-bottom) + env(safe-area-inset-bottom)
   );
-  --page-bottom-space: calc(var(--nav-block) + 1.35rem);
+  /* Clearance above the floating nav. Sized so the last row of the final card
+     stays clear on Android builds where the gesture bar is present but
+     env(safe-area-inset-bottom) still resolves to 0. */
+  --page-bottom-space: calc(var(--nav-block) + 2.1rem);
   font-family:
     Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI',
     sans-serif;
@@ -143,61 +169,76 @@
     --page-bottom-space: 3rem;
   }
 }
+/* Dark theme - Deep Ocean.
+   A near-black blue-green base that reads distinctly cooler and deeper than a
+   generic charcoal, with a teal glass undertone and controlled cyan ambience.
+   Luminous edges stay restrained: depth comes from contrast between the canvas
+   and the glass, not from large glows. */
 .dark {
   color-scheme: dark;
-  --canvas: #171d21;
-  --canvas-deep: #20292c;
-  --ink: #f1f7f5;
-  --ink-secondary: #b9c8c4;
-  --ink-tertiary: #8b9b97;
+  --canvas: #0b1317;
+  --canvas-deep: #132025;
+  --ink: #eef5f4;
+  --ink-secondary: #b4c4c2;
+  --ink-tertiary: #869895;
   --accent: #78bdb5;
   --accent-strong: #a0d4cd;
   --accent-ink: #102421;
   --positive: #77bea1;
   --negative: #e18b88;
-  --ambient-cool: rgb(62 102 119 / 0.19);
-  --ambient-cyan: rgb(50 126 120 / 0.14);
-  --glass-control-bg: rgb(48 62 64 / 0.68);
-  --glass-surface-bg: rgb(35 47 51 / 0.78);
-  --glass-elevated-bg: rgb(39 53 56 / 0.62);
-  --glass-hero-bg: rgb(35 51 53 / 0.76);
-  --glass-inset-bg: rgb(210 242 236 / 0.065);
-  --glass-border: rgb(222 247 242 / 0.19);
-  --glass-border-lower: rgb(0 0 0 / 0.42);
-  --glass-highlight: rgb(237 255 251 / 0.28);
-  --glass-reflection: rgb(196 236 229 / 0.14);
-  --glass-caustic: rgb(95 184 174 / 0.16);
-  --glass-rim: rgb(225 255 248 / 0.22);
-  --glass-shadow: rgb(0 0 0 / 0.34);
-  --glass-shadow-deep: rgb(0 0 0 / 0.58);
-  --glass-lower-shade: rgb(0 0 0 / 0.32);
-  --lens-core: rgb(77 109 108 / 0.76);
-  --lens-edge: rgb(232 255 250 / 0.32);
-  --lens-pool: rgb(75 169 159 / 0.18);
-  --nav-shell-bg: rgb(31 43 47 / 0.04);
-  --nav-shell-border: rgb(211 239 234 / 0.14);
-  --nav-shell-highlight: rgb(227 252 247 / 0.24);
-  --nav-shell-lower: rgb(5 10 12 / 0.5);
+  --ambient-cool: rgb(48 96 122 / 0.14);
+  --ambient-cyan: rgb(44 132 126 / 0.11);
+  --glass-control-bg: rgb(28 44 50 / 0.7);
+  --glass-surface-bg: rgb(20 34 39 / 0.8);
+  --glass-elevated-bg: rgb(25 41 46 / 0.66);
+  --glass-hero-bg: rgb(21 37 42 / 0.78);
+  --glass-inset-bg: rgb(198 236 232 / 0.06);
+  --glass-border: rgb(206 236 233 / 0.17);
+  --glass-border-lower: rgb(0 0 0 / 0.46);
+  --glass-highlight: rgb(228 250 246 / 0.24);
+  --glass-reflection: rgb(186 226 222 / 0.12);
+  --glass-caustic: rgb(88 190 180 / 0.14);
+  --glass-rim: rgb(214 246 240 / 0.2);
+  --glass-shadow: rgb(0 0 0 / 0.4);
+  --glass-shadow-deep: rgb(0 0 0 / 0.62);
+  --glass-lower-shade: rgb(0 0 0 / 0.36);
+  --lens-core: rgb(46 76 82 / 0.76);
+  --lens-edge: rgb(222 250 245 / 0.3);
+  --lens-pool: rgb(70 172 163 / 0.16);
+  --nav-shell-bg: rgb(16 30 35 / 0.05);
+  --nav-shell-border: rgb(200 234 230 / 0.13);
+  --nav-shell-highlight: rgb(218 248 243 / 0.22);
+  --nav-shell-lower: rgb(0 6 9 / 0.55);
   --nav-shell-brightness: 0.97;
-  --nav-label: #b6c7c3;
+  --nav-label: #a8bab7;
   --nav-active-label: #d8f4ee;
-  --nav-lens-bg: rgb(62 91 90 / 0.78);
-  --nav-lens-border: rgb(230 255 249 / 0.36);
-  --nav-lens-reflection: rgb(213 248 241 / 0.2);
-  --nav-lens-lower: rgb(3 13 14 / 0.48);
-  --nav-lens-pool: rgb(58 143 134 / 0.15);
+  --nav-lens-bg: rgb(36 62 68 / 0.78);
+  --nav-lens-border: rgb(220 250 244 / 0.32);
+  --nav-lens-reflection: rgb(200 240 234 / 0.18);
+  --nav-lens-lower: rgb(0 10 12 / 0.5);
+  --nav-lens-pool: rgb(54 150 141 / 0.14);
   --nav-lens-brightness: 1.02;
-  --control-solid: #303b3e;
-  --surface-solid: #263135;
-  --elevated-solid: #2b373a;
-  --hero-solid: #263738;
+  --control-solid: #1b2c31;
+  --surface-solid: #142228;
+  --elevated-solid: #19292e;
+  --hero-solid: #15252a;
   /* Dark-mode form surfaces. These sit between the decorative glass tokens and
-     the solid fallbacks so inputs remain readable while keeping the petrol
+     the solid fallbacks so inputs remain readable while keeping the ocean
      identity. */
-  --field-bg: rgb(44 62 64 / 0.92);
-  --field-border: rgb(230 255 249 / 0.22);
-  --field-border-lower: rgb(0 0 0 / 0.55);
+  --field-bg: rgb(24 40 46 / 0.93);
+  --field-border: rgb(214 246 240 / 0.2);
+  --field-border-lower: rgb(0 0 0 / 0.58);
   --field-focus-ring: rgb(95 184 174 / 0.28);
+  /* Category and action tones are preserved across themes; only the lightness
+     is lifted so each one stays legible on the ocean canvas. */
+  --tone-income: #74c69d;
+  --tone-expense: #e79087;
+  --tone-plan: #a99ae0;
+  --tone-assistant: #6fc6bd;
+  --tone-groceries: #86c98c;
+  --tone-salary: #d9b877;
+  --tone-bills: #7cb8d6;
+  --tone-neutral: #9fb1ae;
   --distribution-cash: #76a9a5;
   --distribution-bank: #70b8ae;
   --distribution-wallet: #b39f78;
@@ -435,13 +476,15 @@ a {
 }
 .home-header {
   display: flex;
+  flex-wrap: nowrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.65rem;
+  gap: 0.5rem;
 }
 .home-greeting {
+  flex: 1 1 8rem;
   min-width: 0;
-  padding-top: 0.15rem;
+  padding-top: 0.05rem;
 }
 .home-greeting p,
 .eyebrow {
@@ -454,18 +497,22 @@ a {
   text-transform: uppercase;
 }
 .home-greeting h1 {
-  max-width: 13rem;
-  margin: 0.28rem 0 0;
+  max-width: 12rem;
+  margin: 0.34rem 0 0;
   font-size: clamp(1.08rem, 5vw, 1.35rem);
   font-weight: 660;
   letter-spacing: -0.035em;
-  line-height: 1.08;
+  line-height: 1.15;
 }
+/* Header hierarchy: Add is the one emphasised action, privacy and theme sit
+   together in a recessed cluster, and the avatar is present without competing.
+   Every control keeps a 2.75rem hit area even where its visual box is
+   smaller. */
 .home-header-actions {
   display: flex;
   flex: none;
   align-items: center;
-  gap: 0.28rem;
+  gap: 0.25rem;
 }
 .header-control,
 .profile-control {
@@ -485,26 +532,128 @@ a {
   height: 1rem;
   stroke-width: 1.8;
 }
-.header-control[aria-pressed='true'] {
-  color: var(--accent-strong);
+.header-control.is-primary {
+  color: var(--accent-ink);
+  background:
+    linear-gradient(145deg, var(--glass-reflection), transparent 44%),
+    var(--accent);
   box-shadow:
     inset 0 1px 0 var(--glass-highlight),
-    0 8px 20px -10px var(--glass-shadow-deep);
+    0 9px 20px -12px var(--glass-shadow-deep);
 }
+.header-control.is-primary svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  stroke-width: 2.1;
+}
+.header-control.is-primary:active {
+  transform: scale(0.96);
+}
+/* One shared shell for the two secondary utilities, so they read as a pair
+   rather than as two more primary buttons. */
+.header-control-cluster {
+  display: flex;
+  flex: none;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 78%, transparent);
+  border-radius: 99rem;
+  background: var(--glass-inset-bg);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+/* Full 2.75rem hit area retained: the pair is de-emphasised by the shared
+   shell and lighter ink, not by shrinking the touch target. */
+.header-control-cluster .header-control {
+  width: 2.6rem;
+  height: 2.75rem;
+  border: 0;
+  border-radius: 99rem;
+  color: color-mix(in srgb, var(--ink-tertiary) 88%, transparent);
+  background: transparent;
+  box-shadow: none;
+}
+.header-control-cluster .header-control::before,
+.header-control-cluster .header-control::after {
+  display: none;
+}
+.header-control-cluster .header-control svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+.header-control-cluster .header-control[aria-pressed='true'] {
+  color: var(--accent-strong);
+  background: var(--glass-highlight);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+.header-control-cluster .header-control:active {
+  transform: scale(0.95);
+}
+/* The avatar keeps its 2.75rem target; the visible disc is inset via a
+   transparent border so it reads smaller than the Add action. */
 .profile-control {
+  border: 0.15rem solid transparent;
   border-radius: 50%;
   color: var(--accent-ink);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 750;
   letter-spacing: 0.02em;
   background:
     linear-gradient(145deg, var(--glass-reflection), transparent 42%),
-    var(--accent);
+    color-mix(in srgb, var(--accent) 76%, var(--canvas-deep));
+  background-clip: padding-box;
+}
+/* Density control. This writes the canonical Profile "Financial position
+   style" setting, so it is a labelled radiogroup rather than a toggle. The
+   label is assistive-tech only; on screen the two options describe
+   themselves. */
+.home-density {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 0.55rem;
+}
+.home-density-group {
+  display: flex;
+  max-width: 100%;
+  gap: 0.2rem;
+  padding: 0.22rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 99rem;
+  background: var(--glass-inset-bg);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+.home-density-group button {
+  min-height: 2.3rem;
+  padding: 0 0.8rem;
+  border-radius: 99rem;
+  color: var(--ink-secondary);
+  font-size: var(--text-helper);
+  font-weight: 660;
+  white-space: nowrap;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color var(--motion-control) var(--motion-ease),
+    background-color var(--motion-control) var(--motion-ease);
+}
+.home-density-group button[aria-checked='true'] {
+  color: var(--accent-ink);
+  background: var(--accent);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 6px 14px -10px var(--glass-shadow-deep);
+}
+.home-sections {
+  display: grid;
+  gap: var(--home-gap);
+  margin-top: var(--home-gap);
+  /* Final section must clear the floating nav. Page already pads bottom by
+     --page-bottom-space, but when the last card's own padding brings content
+     close to its edge the nav can still cover the final row. Extra clearance
+     below the last card resolves it. */
+  padding-bottom: 0.6rem;
 }
 .balance-hero {
-  min-height: 20rem;
-  margin-top: 0.85rem;
-  padding: 1.15rem;
+  padding: 0.82rem 1rem 0.76rem;
   border-color: var(--glass-rim);
   border-bottom-color: var(--glass-border-lower);
 }
@@ -568,19 +717,19 @@ a {
 }
 .balance-total {
   display: block;
-  margin-top: 0.35rem;
-  font-size: clamp(2.05rem, 10.5vw, 2.85rem);
+  margin-top: 0.26rem;
+  font-size: clamp(1.9rem, 9.1vw, 2.5rem);
   font-weight: 680;
-  letter-spacing: -0.065em;
-  line-height: 1;
-  white-space: nowrap;
+  letter-spacing: -0.06em;
+  line-height: 1.04;
+  overflow-wrap: anywhere;
 }
 .balance-status {
   display: inline-flex;
   flex: none;
   align-items: center;
-  gap: 0.32rem;
-  padding: 0.38rem 0.55rem;
+  gap: 0.24rem;
+  padding: 0.26rem 0.44rem;
   border: 1px solid var(--lens-edge);
   border-radius: 99rem;
   color: var(--positive);
@@ -599,26 +748,105 @@ a {
     0 8px 18px -13px var(--glass-shadow-deep);
 }
 .balance-status svg {
-  width: 0.8rem;
-  height: 0.8rem;
+  width: 0.75rem;
+  height: 0.75rem;
   stroke-width: 1.9;
 }
+/* Balance trend. Every plotted point is an end-of-day total replayed from
+   recorded transactions, so the colour only ever reports what the records
+   already say. The empty variant stays deliberately flat and neutral. */
+.balance-trend {
+  margin-top: 0.52rem;
+  color: var(--ink-tertiary);
+}
+.balance-trend.is-up {
+  color: var(--positive);
+}
+.balance-trend.is-down {
+  color: var(--negative);
+}
+.trend-chart {
+  display: block;
+  width: 100%;
+  height: 2.4rem;
+  overflow: visible;
+}
+.trend-area {
+  fill: currentcolor;
+  opacity: 0.13;
+}
+.trend-line {
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+.trend-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-top: 0.28rem;
+}
+.trend-range {
+  flex: none;
+  color: var(--ink-tertiary);
+  font-size: var(--text-helper);
+  font-weight: 620;
+}
+.trend-change {
+  display: inline-flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.05rem 0.3rem;
+  color: currentcolor;
+  font-size: var(--text-body-small);
+  font-weight: 720;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+/* Names the figure so a negative movement can never be misread as the
+   current balance shown above it. */
+.trend-change-label {
+  color: var(--ink-tertiary);
+  font-size: var(--text-helper);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.balance-trend.is-empty {
+  display: grid;
+  gap: 0.45rem;
+}
+.trend-flatline {
+  height: 1px;
+  margin-top: 0.75rem;
+  background: var(--glass-border);
+}
+.balance-trend.is-empty p {
+  margin: 0;
+  color: var(--ink-tertiary);
+  font-size: var(--text-helper);
+  line-height: 1.45;
+}
 .account-distribution {
-  margin-top: 2rem;
-  padding: 0.78rem 0.82rem 0.72rem;
+  margin-top: 0.62rem;
+  padding: 0.46rem 0.65rem 0.44rem;
   border: 1px solid var(--glass-border);
-  border-radius: 1.15rem;
+  border-radius: 1rem;
   background:
     linear-gradient(118deg, var(--glass-reflection), transparent 43%),
     var(--glass-inset-bg);
   box-shadow:
     inset 0 1px 0 var(--glass-highlight),
     inset 0 -1px 1px var(--glass-lower-shade),
-    0 9px 22px -17px var(--glass-shadow);
+    0 6px 16px -14px var(--glass-shadow);
 }
 .distribution-track {
   display: flex;
-  height: 0.52rem;
+  height: 0.36rem;
   gap: 0.18rem;
   overflow: hidden;
   border: 1px solid var(--glass-border);
@@ -647,9 +875,9 @@ a {
 }
 .account-list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.45rem;
-  margin: 0.7rem 0 0;
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+  gap: 0.34rem;
+  margin: 0.4rem 0 0;
 }
 .account-list div {
   min-width: 0;
@@ -658,75 +886,158 @@ a {
   overflow: hidden;
   margin: 0;
   color: var(--ink-tertiary);
-  font-size: var(--text-control-label);
+  font-size: var(--text-helper);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .account-list dd {
-  margin: 0.16rem 0 0;
+  margin: 0.08rem 0 0;
   font-size: var(--text-body-small);
   font-weight: 670;
   letter-spacing: -0.02em;
   white-space: nowrap;
 }
-.financial-position {
+/* Quick actions. Each one reuses an existing dialog or route; the tone
+   attribute is the only thing that differs between them. Tiles carry a faint
+   wash of their own tone so the row reads as four distinct affordances
+   without any of them glowing. */
+.quick-actions {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 0.85rem;
-  margin-top: 1.4rem;
-  padding: 0.8rem 0.85rem;
-  border: 1px solid var(--glass-rim);
-  border-radius: 1.15rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+.quick-action {
+  display: grid;
+  min-height: 4.4rem;
+  align-content: center;
+  justify-items: center;
+  gap: 0.22rem;
+  padding: 0.55rem 0.25rem;
+  color: var(--ink-secondary);
+  font-size: 0.7rem;
+  font-weight: 660;
+  line-height: 1.15;
+  text-align: center;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition:
+    transform var(--motion-control) var(--motion-ease),
+    box-shadow var(--motion-control) var(--motion-ease);
+}
+.quick-action-icon {
+  display: grid;
+  width: 2.1rem;
+  height: 2.1rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, currentcolor 32%, transparent);
+  border-radius: 0.75rem;
+  color: var(--tone-neutral);
   background:
-    radial-gradient(
-      ellipse at 18% -8%,
-      var(--glass-highlight),
-      transparent 42%
-    ),
-    linear-gradient(120deg, var(--glass-reflection), transparent 49%),
-    var(--glass-inset-bg);
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, currentcolor 26%, transparent),
+      color-mix(in srgb, currentcolor 13%, transparent)
+    );
   box-shadow:
     inset 0 1px 0 var(--glass-highlight),
-    inset 0 -2px 2px var(--glass-lower-shade),
-    0 12px 26px -19px var(--glass-shadow-deep);
+    0 4px 10px -8px var(--glass-shadow-deep);
 }
-.financial-position > div p {
-  margin: 0 0 0.1rem;
-  color: var(--ink-tertiary);
-  font-size: var(--text-eyebrow);
-  font-weight: 650;
-  text-transform: uppercase;
+.quick-action-icon svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2;
 }
-.financial-position > div .private-amount {
-  font-size: 0.91rem;
-  font-weight: 720;
-  letter-spacing: -0.025em;
-  white-space: nowrap;
+/* Pressed feedback is transform + opacity only, and is neutralised under
+   reduced motion by the global transition override. */
+.quick-action:active {
+  transform: scale(0.965);
+  opacity: 0.9;
 }
-.financial-position > p {
-  margin: 0;
-  padding-left: 0.85rem;
-  border-left: 1px solid var(--glass-border);
+.quick-action[data-tone='expense'] {
+  background-color: color-mix(in srgb, var(--tone-expense) 7%, transparent);
+}
+.quick-action[data-tone='expense'] .quick-action-icon {
+  color: var(--tone-expense);
+}
+.quick-action[data-tone='income'] {
+  background-color: color-mix(in srgb, var(--tone-income) 7%, transparent);
+}
+.quick-action[data-tone='income'] .quick-action-icon {
+  color: var(--tone-income);
+}
+.quick-action[data-tone='plan'] {
+  background-color: color-mix(in srgb, var(--tone-plan) 7%, transparent);
+}
+.quick-action[data-tone='plan'] .quick-action-icon {
+  color: var(--tone-plan);
+}
+.quick-action[data-tone='assistant'] {
+  background-color: color-mix(in srgb, var(--tone-assistant) 7%, transparent);
+}
+.quick-action[data-tone='assistant'] .quick-action-icon {
+  color: var(--tone-assistant);
+}
+/* Safe to spend is a primary surface, so it is elevated glass, but it stays a
+   single row of information and never grows taller than it needs to be. */
+.safe-to-spend {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  padding: var(--card-pad);
+  border-color: var(--glass-rim);
+}
+.safe-to-spend-copy {
+  min-width: 0;
+}
+.safe-to-spend-amount {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: clamp(1.45rem, 7vw, 1.85rem);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+.safe-to-spend-note {
+  margin: 0.32rem 0 0;
   color: var(--ink-secondary);
   font-size: var(--text-helper);
   line-height: 1.4;
 }
-.private-amount {
-  font-variant-numeric: tabular-nums;
-  transition:
-    opacity var(--motion-control) var(--motion-ease),
-    letter-spacing var(--motion-control) var(--motion-ease);
+.safe-to-spend-mark {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--glass-border);
+  border-radius: 0.95rem;
+  color: var(--accent);
+  background: var(--glass-inset-bg);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
 }
-.private-amount[data-private='true'] {
-  letter-spacing: 0.035em;
-  opacity: 0.82;
+.safe-to-spend-mark svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  stroke-width: 1.8;
 }
-.monthly-flow {
-  margin-top: 0.8rem;
-  padding: 1rem;
+.monthly-flow,
+.planning-overview,
+.recent-activity,
+.home-insight {
+  padding: var(--card-pad);
   border-color: var(--glass-rim);
+}
+/* Detailed-mode hierarchy. Safe to Spend stays the primary elevated card;
+   below it Monthly Flow is the richest surface, Planning Overview recedes as
+   an inset panel, and Recent Activity stays a plain neutral list. All three
+   resolve from the shared glass tokens, so this is a depth ordering rather
+   than three different card designs. */
+.monthly-flow {
   background:
     radial-gradient(
       ellipse at 92% -12%,
@@ -744,22 +1055,95 @@ a {
     inset 0 1px 0 var(--glass-highlight),
     0 18px 38px -28px var(--glass-shadow-deep);
 }
-.flow-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+/* Recessed: no top highlight, a faint inner shade at the top edge, and a
+   shallower cast so it sits behind Monthly Flow. */
+.planning-overview {
+  border-color: var(--glass-border);
+  background: var(--glass-inset-bg);
+  box-shadow:
+    inset 0 1px 2px var(--glass-lower-shade),
+    inset 0 -1px 0 var(--glass-highlight),
+    0 6px 16px -18px var(--glass-shadow);
 }
-.flow-heading h2 {
+/* The shared glass sheen would undo the inset reading, so it is muted here. */
+.planning-overview.glass-surface::before {
+  opacity: 0.22;
+}
+.planning-overview.glass-surface::after {
+  opacity: 0.2;
+}
+/* Neutral list surface: flat, no gradient wash, minimal cast. */
+.recent-activity {
+  background: var(--glass-surface-bg);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 10px 24px -24px var(--glass-shadow);
+}
+/* Home-only light hierarchy: a restrained tint lifts Monthly Flow, while
+   Planning stays inset and Recent Activity remains the clean neutral surface. */
+:root:not(.dark) .monthly-flow {
+  background:
+    radial-gradient(
+      ellipse at 92% -12%,
+      color-mix(in srgb, var(--glass-caustic) 88%, var(--accent) 12%),
+      transparent 43%
+    ),
+    radial-gradient(
+      ellipse at 5% 0%,
+      var(--glass-highlight),
+      transparent 36%
+    ),
+    linear-gradient(137deg, var(--glass-reflection), transparent 45%),
+    color-mix(in srgb, var(--glass-surface-bg) 96%, var(--accent) 4%);
+}
+:root:not(.dark) .planning-overview {
+  background: color-mix(in srgb, var(--glass-inset-bg) 88%, var(--canvas) 12%);
+  box-shadow:
+    inset 0 1px 2px var(--glass-lower-shade),
+    inset 0 -1px 0 var(--glass-highlight),
+    0 4px 12px -18px var(--glass-shadow);
+}
+:root:not(.dark) .recent-activity {
+  background: color-mix(in srgb, var(--glass-surface-bg) 92%, var(--canvas) 8%);
+}
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 0.7rem;
+}
+/* Keeps the title from pushing "View all" off the card at 130% text scale. */
+.section-heading > div {
+  min-width: 0;
+}
+.section-heading h2 {
   margin: 0.17rem 0 0;
-  font-size: 1rem;
+  font-size: var(--text-section-title);
   font-weight: 690;
   letter-spacing: -0.03em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
-.flow-heading > svg {
-  width: 1rem;
-  height: 1rem;
-  color: var(--positive);
-  stroke-width: 1.8;
+/* Single shared "View all" affordance: always top-right, never repeated at the
+   bottom of a card. */
+.section-view-all {
+  display: inline-flex;
+  flex: none;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.15rem;
+  margin: -0.2rem -0.35rem 0 0;
+  padding: 0 0.35rem;
+  color: var(--accent);
+  font-size: var(--text-helper);
+  font-weight: 680;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.section-view-all svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  stroke-width: 2;
 }
 .flow-values {
   display: grid;
@@ -784,91 +1168,13 @@ a {
   font-size: var(--text-body-small);
   font-weight: 700;
   letter-spacing: -0.02em;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .flow-values div:first-child dd {
-  color: var(--positive);
+  color: var(--tone-income);
 }
 .flow-values div:nth-child(2) dd {
-  color: var(--negative);
-}
-.insight-line {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
-  gap: 0.55rem;
-  margin-top: 0.9rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--glass-border);
-  background: linear-gradient(
-    to right,
-    var(--glass-reflection),
-    transparent 48%
-  );
-  background-position: 0 -0.75rem;
-  background-repeat: no-repeat;
-}
-.insight-line svg {
-  width: 0.9rem;
-  height: 0.9rem;
-  margin-top: 0.08rem;
-  color: var(--accent);
-  stroke-width: 1.8;
-}
-.insight-line p {
-  margin: 0;
-  color: var(--ink-secondary);
-  font-size: var(--text-body-small);
-  line-height: 1.45;
-}
-.assistant-entry {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.75rem;
-  min-height: 4.5rem;
-  margin-top: 0.8rem;
-  padding: 0.65rem 0.75rem;
-  transition:
-    transform var(--motion-control) var(--motion-ease),
-    box-shadow var(--motion-control) var(--motion-ease);
-}
-.assistant-icon {
-  display: grid;
-  width: 2.75rem;
-  height: 2.75rem;
-  place-items: center;
-  border: 1px solid var(--glass-border);
-  border-radius: 1rem;
-  color: var(--accent-ink);
-  background: var(--accent);
-  box-shadow:
-    inset 0 1px 0 var(--glass-highlight),
-    0 8px 20px -10px var(--glass-shadow-deep);
-}
-.assistant-icon svg,
-.assistant-entry > svg {
-  width: 1rem;
-  height: 1rem;
-  stroke-width: 1.8;
-}
-.assistant-entry > span:nth-child(2) {
-  min-width: 0;
-  font-size: 0.78rem;
-  font-weight: 660;
-  letter-spacing: -0.01em;
-}
-.assistant-entry small {
-  display: block;
-  margin-bottom: 0.1rem;
-  color: var(--ink-tertiary);
-  font-size: var(--text-eyebrow);
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-.assistant-entry > svg {
-  color: var(--accent);
+  color: var(--tone-expense);
 }
 .flow-proportion {
   height: 0.42rem;
@@ -885,171 +1191,85 @@ a {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--negative), color-mix(in srgb, var(--negative), var(--accent) 18%));
+  background: linear-gradient(
+    90deg,
+    var(--tone-expense),
+    color-mix(in srgb, var(--tone-expense), var(--accent) 18%)
+  );
   box-shadow: inset 0 1px 0 var(--glass-highlight);
 }
-.home-secondary-content {
+/* Planning sits below Balance and Safe to Spend in the hierarchy, so it uses
+   the lighter surface treatment and no inner card chrome. */
+.planning-figures {
   display: grid;
-  gap: 0.8rem;
-  margin-top: 0.8rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0.8rem 0 0;
 }
-.outstanding-position,
-.next-commitment,
-.financial-insight,
-.recent-activity {
-  padding: 1rem;
-  border-color: var(--glass-rim);
-}
-.section-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.7rem;
-}
-.section-heading h2,
-.financial-insight h2 {
-  margin: 0.17rem 0 0;
-  font-size: 1rem;
-  font-weight: 690;
-  letter-spacing: -0.03em;
-}
-.outstanding-list {
-  display: grid;
-  margin-top: 0.75rem;
-  border-top: 1px solid var(--glass-border);
-}
-.outstanding-row {
-  display: grid;
-  min-height: 4.6rem;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.65rem;
-  color: var(--ink);
-}
-.outstanding-row + .outstanding-row {
-  border-top: 1px solid var(--glass-border);
-}
-.outstanding-icon,
-.commitment-icon,
-.activity-icon {
-  display: grid;
-  flex: none;
-  place-items: center;
-  border: 1px solid var(--glass-border);
-  color: var(--accent);
-  background: var(--glass-inset-bg);
-}
-.outstanding-icon {
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 0.85rem;
-}
-.outstanding-icon svg,
-.outstanding-amount > svg {
-  width: 0.95rem;
-  height: 0.95rem;
-  stroke-width: 1.8;
-}
-.receive-icon {
-  color: var(--positive);
-}
-.pay-icon {
-  color: var(--negative);
-}
-.outstanding-copy,
-.activity-copy {
+.planning-figures div {
   min-width: 0;
 }
-.outstanding-copy strong,
-.activity-copy strong {
-  display: block;
-  overflow: hidden;
-  font-size: var(--text-body-small);
-  font-weight: 680;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.planning-figures div + div {
+  padding-left: 0.55rem;
+  border-left: 1px solid var(--glass-border);
 }
-.outstanding-copy small,
-.activity-copy small {
-  display: block;
-  overflow: hidden;
-  margin-top: 0.16rem;
+.planning-figures dt {
   color: var(--ink-tertiary);
   font-size: var(--text-helper);
   font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.outstanding-amount {
+.planning-figures dd {
+  margin: 0.18rem 0 0;
+  font-size: var(--text-body-small);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+.planning-figures div[data-tone='income'] dd {
+  color: var(--tone-income);
+}
+.planning-figures div[data-tone='expense'] dd {
+  color: var(--tone-expense);
+}
+.planning-figures div[data-tone='plan'] dd {
+  color: var(--tone-plan);
+}
+.planning-overdue,
+.planning-next {
   display: flex;
   align-items: center;
-  gap: 0.28rem;
+  gap: 0.5rem;
+  margin: 0.8rem 0 0;
+  color: var(--ink-secondary);
+  font-size: var(--text-helper);
+  line-height: 1.4;
+}
+.planning-overdue .private-amount,
+.planning-next .private-amount {
+  margin-left: auto;
   color: var(--ink);
-  font-size: var(--text-body-small);
   font-weight: 720;
   white-space: nowrap;
 }
-.outstanding-amount > svg {
+.planning-next svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex: none;
   color: var(--accent);
+  stroke-width: 1.8;
 }
-.next-commitment {
-  min-height: 7rem;
-}
-.compact-heading {
-  align-items: center;
+.planning-next > span {
+  min-width: 0;
 }
 .overdue-badge {
   flex: none;
   padding: 0.3rem 0.5rem;
-  border: 1px solid color-mix(in srgb, var(--negative), transparent 68%);
+  border: 1px solid color-mix(in srgb, var(--tone-expense), transparent 68%);
   border-radius: 99rem;
-  color: var(--negative);
+  color: var(--tone-expense);
   font-size: var(--text-eyebrow);
   font-weight: 720;
-  background: color-mix(in srgb, var(--negative), transparent 90%);
-}
-.commitment-details {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.55rem;
-  margin-top: 0.85rem;
-  color: var(--ink-secondary);
-  font-size: var(--text-control-label);
-}
-.commitment-details > .private-amount {
-  color: var(--ink);
-  font-weight: 720;
-  white-space: nowrap;
-}
-.commitment-icon {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.72rem;
-}
-.commitment-icon svg {
-  width: 0.88rem;
-  height: 0.88rem;
-  stroke-width: 1.8;
-}
-.financial-insight {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
-  gap: 0.65rem;
-}
-.financial-insight > svg {
-  width: 1rem;
-  height: 1rem;
-  margin-top: 0.12rem;
-  color: var(--accent);
-  stroke-width: 1.8;
-}
-.financial-insight p:not(.eyebrow) {
-  margin: 0.45rem 0 0;
-  color: var(--ink-secondary);
-  font-size: 0.72rem;
-  line-height: 1.5;
+  background: color-mix(in srgb, var(--tone-expense), transparent 90%);
 }
 .activity-list {
   display: grid;
@@ -1069,28 +1289,68 @@ a {
   border-top: 1px solid var(--glass-border);
 }
 .activity-icon {
+  display: grid;
   width: 2rem;
   height: 2rem;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--glass-border);
   border-radius: 0.72rem;
+  color: var(--tone-neutral);
+  background: color-mix(in srgb, currentcolor 12%, var(--glass-inset-bg));
 }
 .activity-icon svg {
   width: 0.88rem;
   height: 0.88rem;
   stroke-width: 1.8;
 }
-.activity-income {
-  color: var(--positive);
+.activity-icon[data-tone='groceries'] {
+  color: var(--tone-groceries);
 }
-.activity-expense {
-  color: var(--accent);
+.activity-icon[data-tone='salary'] {
+  color: var(--tone-salary);
+}
+.activity-icon[data-tone='expense'] {
+  color: var(--tone-expense);
+}
+.activity-icon[data-tone='income'] {
+  color: var(--tone-income);
+}
+.activity-icon[data-tone='bills'] {
+  color: var(--tone-bills);
+}
+.activity-icon[data-tone='plan'] {
+  color: var(--tone-plan);
+}
+.activity-copy {
+  min-width: 0;
+}
+.activity-copy strong {
+  display: block;
+  overflow: hidden;
+  font-size: var(--text-body-small);
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activity-copy small {
+  display: block;
+  overflow: hidden;
+  margin-top: 0.16rem;
+  color: var(--ink-tertiary);
+  font-size: var(--text-helper);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .activity-meta {
   display: grid;
   justify-items: end;
-  gap: 0.14rem;
+  gap: 0.08rem;
   color: var(--ink-tertiary);
   font-size: var(--text-helper);
   font-weight: 600;
+  line-height: 1.2;
 }
 .activity-meta .private-amount {
   color: var(--ink);
@@ -1099,10 +1359,102 @@ a {
   white-space: nowrap;
 }
 .activity-row:has(.activity-income) .activity-meta .private-amount {
-  color: var(--positive);
+  color: var(--tone-income);
 }
 .activity-row:has(.activity-expense) .activity-meta .private-amount {
-  color: var(--negative);
+  color: var(--tone-expense);
+}
+/* Conditional insight. Rendered only when a notable condition is derivable
+   from stored records, and dismissible locally. */
+.home-insight {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.7rem;
+  color: var(--tone-neutral);
+}
+.home-insight[data-tone='attention'] {
+  color: var(--tone-expense);
+}
+.home-insight[data-tone='caution'] {
+  color: var(--tone-salary);
+}
+.home-insight[data-tone='positive'] {
+  color: var(--tone-income);
+}
+.home-insight-icon {
+  display: grid;
+  width: 2.1rem;
+  height: 2.1rem;
+  flex: none;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, currentcolor 34%, transparent);
+  border-radius: 0.75rem;
+  color: currentcolor;
+  background: color-mix(in srgb, currentcolor 13%, var(--glass-inset-bg));
+}
+.home-insight-icon svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  stroke-width: 1.85;
+}
+.home-insight-copy {
+  min-width: 0;
+}
+.home-insight-copy h2 {
+  margin: 0.1rem 0 0;
+  color: var(--ink);
+  font-size: var(--text-card-title);
+  font-weight: 690;
+  letter-spacing: -0.025em;
+  line-height: 1.3;
+}
+.home-insight-copy p {
+  margin: 0.28rem 0 0;
+  color: var(--ink-secondary);
+  font-size: var(--text-helper);
+  line-height: 1.45;
+}
+.home-insight-amount {
+  display: block;
+  margin-top: 0.35rem;
+  color: currentcolor;
+  font-size: var(--text-body-small);
+  font-weight: 730;
+  letter-spacing: -0.02em;
+}
+.home-insight-dismiss {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  place-items: center;
+  margin: -0.25rem -0.3rem 0 0;
+  border-radius: 0.7rem;
+  color: var(--ink-tertiary);
+  background: transparent;
+  cursor: pointer;
+}
+.home-insight-dismiss svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  stroke-width: 2;
+}
+.empty-state-note {
+  margin: 0.75rem 0 0;
+  color: var(--ink-tertiary);
+  font-size: var(--text-helper);
+  line-height: 1.45;
+}
+.private-amount {
+  font-variant-numeric: tabular-nums;
+  transition:
+    opacity var(--motion-control) var(--motion-ease),
+    letter-spacing var(--motion-control) var(--motion-ease);
+}
+.private-amount[data-private='true'] {
+  letter-spacing: 0.035em;
+  opacity: 0.82;
 }
 .sr-only {
   position: absolute;
@@ -2190,7 +2542,7 @@ a {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.2rem;
+  gap: 0.16rem;
   padding: 0 0.1rem;
   border-radius: 1.55rem;
   color: var(--nav-label);
@@ -2220,6 +2572,9 @@ a {
 }
 .navigation-link.is-active .navigation-icon {
   transform: translateY(-0.1rem) scale(1.08);
+}
+:root:not(.dark) .navigation-link:not(.is-active) {
+  color: color-mix(in srgb, var(--nav-label) 86%, var(--canvas));
 }
 .route-shell {
   display: grid;
@@ -2312,7 +2667,7 @@ a {
     height: 2.65rem;
   }
   .balance-hero {
-    padding: 1rem;
+    padding: 0.82rem 0.9rem 0.76rem;
   }
   .balance-total {
     font-size: 1.95rem;
@@ -2341,6 +2696,12 @@ a {
   }
   .activity-row {
     gap: 0.45rem;
+  }
+}
+@media (max-width: 380px) {
+  .trend-change {
+    display: grid;
+    justify-items: end;
   }
 }
 @media (max-width: 767px) {
@@ -2556,7 +2917,7 @@ a {
   font-size: clamp(1.55rem, 7vw, 2.15rem);
   font-weight: 670;
   letter-spacing: -0.052em;
-  line-height: 1;
+  line-height: 1.08;
 }
 .assistant-page-header > div > p:last-child {
   max-width: 20rem;
@@ -2590,9 +2951,9 @@ a {
 .assistant-intro {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.8rem;
-  margin-top: 1rem;
-  padding: 1rem;
+  gap: 0.72rem;
+  margin-top: 0.85rem;
+  padding: 0.88rem;
 }
 .assistant-intro-icon {
   display: grid;
@@ -2634,14 +2995,14 @@ a {
   line-height: 1.5;
 }
 .assistant-suggestions {
-  margin-top: 1.1rem;
+  margin-top: 0.9rem;
 }
 .assistant-suggestion-list,
 .assistant-follow-ups {
   display: flex;
   gap: 0.45rem;
   overflow-x: auto;
-  padding: 0.55rem 0.05rem 0.15rem;
+  padding: 0.42rem 0.05rem 0.1rem;
   scrollbar-width: none;
 }
 .assistant-suggestion-list::-webkit-scrollbar,
@@ -2672,8 +3033,8 @@ a {
 }
 .assistant-conversation {
   display: grid;
-  gap: 0.8rem;
-  margin-top: 1.1rem;
+  gap: 0.9rem;
+  margin-top: 1rem;
 }
 .assistant-message {
   width: min(100%, 36rem);
@@ -2682,19 +3043,22 @@ a {
   justify-self: end;
   max-width: min(88%, 28rem);
   padding: 0.78rem 0.9rem;
-  border: 1px solid color-mix(in srgb, var(--accent), transparent 72%);
+  border: 1px solid color-mix(in srgb, var(--accent), transparent 65%);
   border-radius: 1.1rem 1.1rem 0.45rem 1.1rem;
-  background: color-mix(in srgb, var(--accent), transparent 90%);
+  background: color-mix(in srgb, var(--accent), var(--glass-control-bg) 88%);
   box-shadow: inset 0 1px 0 var(--glass-highlight);
 }
 .assistant-message.is-assistant {
-  padding: 0.1rem 0;
+  padding: 0.68rem 0.78rem;
+  border-left: 2px solid color-mix(in srgb, var(--accent), transparent 55%);
+  border-radius: 0 0.85rem 0.85rem 0;
+  background: color-mix(in srgb, var(--glass-surface-bg), transparent 18%);
 }
 .assistant-message-heading {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  color: var(--ink-tertiary);
+  color: var(--ink-secondary);
   font-size: var(--text-eyebrow);
   font-weight: 730;
   letter-spacing: 0.065em;
@@ -2702,6 +3066,7 @@ a {
   text-transform: uppercase;
 }
 .assistant-message-heading time {
+  color: var(--ink-tertiary);
   font-size: 0.8125rem;
   font-weight: 620;
   letter-spacing: 0.02em;
@@ -2711,7 +3076,7 @@ a {
   margin: 0.34rem 0 0;
   color: var(--ink);
   font-size: var(--text-body);
-  line-height: 1.6;
+  line-height: 1.65;
 }
 .assistant-insight {
   margin-top: 0.68rem;
@@ -2824,19 +3189,19 @@ a {
 .assistant-composer {
   position: sticky;
   z-index: 20;
-  bottom: calc(var(--nav-block) + 0.5rem);
+  bottom: calc(var(--nav-block) + 0.65rem);
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: end;
+  align-items: center;
   gap: 0.5rem;
   width: min(100%, 42rem);
   margin-top: 1rem;
-  padding: 0.5rem 0.5rem 0.5rem 0.68rem;
+  padding: 0.42rem 0.42rem 0.42rem 0.68rem;
 }
 .assistant-composer > svg {
   width: 1rem;
   height: 1rem;
-  margin-bottom: 0.56rem;
+  margin: 0;
   color: var(--accent);
   stroke-width: 1.75;
 }
@@ -2844,7 +3209,7 @@ a {
   width: 100%;
   min-height: 2.75rem;
   max-height: 8rem;
-  padding: 0.65rem 0;
+  padding: 0.68rem 0;
   resize: vertical;
   border: 0;
   outline: 0;
@@ -2866,8 +3231,8 @@ a {
 }
 .assistant-send {
   display: grid;
-  width: 3.25rem;
-  height: 3.25rem;
+  width: 3rem;
+  height: 3rem;
   place-items: center;
   border: 1px solid color-mix(in srgb, var(--accent), transparent 42%);
   border-radius: 0.9rem;
@@ -4205,7 +4570,10 @@ body:has(.finance-dialog-backdrop) .floating-navigation { visibility: hidden; po
   .planning-header { flex-direction: row; align-items: flex-start; justify-content: space-between; }
   .planning-detail-actions button { min-width: 6rem; }
 }
-.data-safety { margin-top: var(--section-gap); }
+.data-safety {
+  margin-top: var(--section-gap);
+  padding: var(--card-pad-tight);
+}
 .data-safety-preview h3 { margin: 0; font-size: var(--text-section-title); }
 .data-safety-table { width: 100%; border-collapse: collapse; margin-top: .3rem; font-size: var(--text-body-small); }
 .data-safety-table th, .data-safety-table td { padding: .4rem .5rem; text-align: right; border-bottom: 1px solid var(--glass-border); }
@@ -4275,15 +4643,16 @@ body:has(.finance-dialog-backdrop) .floating-navigation { visibility: hidden; po
   min-height: 1.25rem;
   margin: 0.25rem 0 0;
   font-size: 0.8125rem;
-  color: var(--text-muted, rgb(120 120 130));
+  color: var(--ink-tertiary);
+  line-height: 1.4;
 }
 .assistant-action-preview,
 .assistant-action-receipt {
-  margin-top: 0.9rem;
-  padding: 1rem;
-  border-radius: 1rem;
+  margin-top: 0.72rem;
+  padding: 0.82rem;
+  border-radius: 0.85rem;
   display: grid;
-  gap: 0.55rem;
+  gap: 0.4rem;
 }
 .assistant-action-kicker {
   color: var(--text-muted);
@@ -4299,8 +4668,17 @@ body:has(.finance-dialog-backdrop) .floating-navigation { visibility: hidden; po
 }
 .assistant-action-preview > .private-amount,
 .assistant-action-receipt > .private-amount {
-  font-size: 1.25rem;
+  font-size: 1.18rem;
   font-weight: 750;
+}
+.assistant-action-preview > h3 {
+  font-size: var(--text-card-title);
+  line-height: 1.3;
+}
+.assistant-action-preview > p:not(.assistant-action-kicker):not(.assistant-action-note):not(.assistant-action-state) {
+  color: var(--ink-secondary);
+  font-size: var(--text-body-small);
+  line-height: 1.5;
 }
 .assistant-action-note,
 .assistant-action-state,
@@ -4309,10 +4687,10 @@ body:has(.finance-dialog-backdrop) .floating-navigation { visibility: hidden; po
   font-size: 0.84rem;
 }
 .assistant-action-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  margin-top: 0.25rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.2rem;
 }
 /* Compact child rows for a multi-action preview or its combined receipt. Each
    row states its own amount and target, so the user confirms every action they
@@ -4339,17 +4717,39 @@ body:has(.finance-dialog-backdrop) .floating-navigation { visibility: hidden; po
   font-size: 0.82rem;
 }
 .assistant-action-buttons button {
+  width: 100%;
   min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.75rem;
+  line-height: 1.25;
 }
 .assistant-action-confirm {
   border: 0;
-  border-radius: 0.8rem;
+  border-radius: 0.7rem;
   background: var(--accent);
   color: var(--accent-contrast, #fff);
   cursor: pointer;
   font: inherit;
   font-weight: 700;
-  padding: 0.65rem 1rem;
+  padding: 0 0.75rem;
+}
+.assistant-action-buttons .glass-control {
+  border-radius: 0.7rem;
+  color: var(--ink-secondary);
+  font-weight: 670;
+}
+.assistant-action-preview.is-cancelled {
+  gap: 0.28rem;
+  padding-block: 0.68rem;
+  opacity: 0.82;
+}
+.assistant-action-preview.is-cancelled .assistant-action-kicker {
+  color: var(--ink-tertiary);
+}
+.assistant-action-preview.is-cancelled .assistant-action-state {
+  display: none;
 }
 .assistant-action-confirm:disabled,
 .assistant-action-buttons .glass-control:disabled {
@@ -4463,17 +4863,19 @@ body:has(.finance-dialog-backdrop) .floating-navigation { visibility: hidden; po
 .cloud-sync-header {
   align-items: flex-start;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.65rem;
 }
 .cloud-sync-header > div {
   min-width: 0;
 }
 .cloud-sync-header .eyebrow {
-  margin-bottom: 0.3rem;
+  margin: 0 0 0.32rem;
+  line-height: 1.35;
 }
 .cloud-sync-header h2 {
+  margin: 0;
   font-size: var(--text-section-title);
-  line-height: 1.2;
+  line-height: 1.3;
 }
 .cloud-status {
   flex: 0 1 auto;
@@ -4622,7 +5024,7 @@ body:has(.finance-dialog-backdrop) .floating-navigation { visibility: hidden; po
   padding: 0.8rem;
   border: 1px solid var(--glass-border);
   border-radius: 0.8rem;
-  background: var(--glass-inset-bg);
+  background: color-mix(in srgb, var(--glass-inset-bg), transparent 12%);
 }
 .cloud-sync-confirm p {
   margin: 0;
@@ -4753,6 +5155,12 @@ body:has(.finance-dialog-backdrop) .floating-navigation { visibility: hidden; po
   }
   .sync-status-row button {
     width: 100%;
+  }
+  .cloud-sync-header {
+    flex-wrap: wrap;
+  }
+  .cloud-status {
+    max-width: 100%;
   }
 }
 

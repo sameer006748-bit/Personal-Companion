@@ -2,6 +2,7 @@ import {
   addDays,
   differenceInCalendarDays,
   endOfMonth,
+  format,
   isWithinInterval,
   parseISO,
   startOfMonth,
@@ -923,4 +924,252 @@ export function hasPlanningItems(items: PlanningItems): boolean {
     items.payables.length > 0 ||
     items.commitments.length > 0
   )
+}
+
+// Home balance trend. Account balances are opening balance plus recorded
+// transaction deltas, so end-of-day totals can be replayed backwards from the
+// authoritative current total without inventing a single point. Days without
+// activity carry the previous day forward, which is what the balance actually
+// was on that day.
+export interface BalanceTrendPoint {
+  date: string
+  balance: number
+}
+
+export interface BalanceTrend {
+  points: readonly BalanceTrendPoint[]
+  windowDays: number
+  change: number
+  startBalance: number
+  endBalance: number
+  hasHistory: boolean
+}
+
+const BALANCE_TREND_MAX_DAYS = 30
+const BALANCE_TREND_MIN_SPAN_DAYS = 2
+
+function getActiveBalanceDelta(
+  transaction: FinanceTransaction,
+  activeAccountIds: ReadonlySet<AccountId>,
+): number {
+  if (transaction.direction === 'transfer') {
+    const leaving = activeAccountIds.has(transaction.accountId)
+      ? -transaction.amount
+      : 0
+    const arriving =
+      transaction.destinationAccountId &&
+      activeAccountIds.has(transaction.destinationAccountId)
+        ? transaction.amount
+        : 0
+
+    return leaving + arriving
+  }
+
+  if (!activeAccountIds.has(transaction.accountId)) {
+    return 0
+  }
+
+  if (transaction.direction === 'income') {
+    return transaction.amount
+  }
+
+  if (transaction.direction === 'expense') {
+    return -transaction.amount
+  }
+
+  return 0
+}
+
+function shiftIsoDate(date: string, days: number): string {
+  return format(addDays(parseISO(date), days), 'yyyy-MM-dd')
+}
+
+export function getBalanceTrend(
+  data: PersonalFinanceData,
+  maxDays: number = BALANCE_TREND_MAX_DAYS,
+): BalanceTrend {
+  const today = data.activityReferenceDate
+  const endBalance = getTotalAvailable(data)
+  const emptyTrend: BalanceTrend = {
+    points: [],
+    windowDays: 0,
+    change: 0,
+    startBalance: endBalance,
+    endBalance,
+    hasHistory: false,
+  }
+
+  const activeAccountIds = new Set(data.accounts.map((account) => account.id))
+  const history = [...data.transactions]
+    .filter((transaction) => transaction.date <= today)
+    .sort((first, second) => first.date.localeCompare(second.date))
+
+  const earliest = history[0]?.date
+
+  if (!earliest) {
+    return emptyTrend
+  }
+
+  const recordedDays = new Set(history.map((transaction) => transaction.date))
+  const recordedSpan = differenceInCalendarDays(
+    parseISO(today),
+    parseISO(earliest),
+  )
+
+  // A single day of records cannot describe a direction, so the caller renders
+  // a calm empty state instead of implying growth or decline.
+  if (recordedDays.size < 2 || recordedSpan < BALANCE_TREND_MIN_SPAN_DAYS) {
+    return emptyTrend
+  }
+
+  const windowDays = Math.min(maxDays, recordedSpan)
+  const firstDay = shiftIsoDate(today, -windowDays)
+  const dailyDelta = new Map<string, number>()
+  let deltaAfterFirstDay = 0
+
+  history.forEach((transaction) => {
+    if (transaction.date <= firstDay) {
+      return
+    }
+
+    const delta = getActiveBalanceDelta(transaction, activeAccountIds)
+    deltaAfterFirstDay += delta
+    dailyDelta.set(
+      transaction.date,
+      (dailyDelta.get(transaction.date) ?? 0) + delta,
+    )
+  })
+
+  let running = endBalance - deltaAfterFirstDay
+  const points: BalanceTrendPoint[] = []
+
+  for (let offset = 0; offset <= windowDays; offset += 1) {
+    const day = shiftIsoDate(firstDay, offset)
+
+    if (offset > 0) {
+      running += dailyDelta.get(day) ?? 0
+    }
+
+    points.push({ date: day, balance: running })
+  }
+
+  const startBalance = points[0]?.balance ?? endBalance
+
+  return {
+    points,
+    windowDays,
+    change: endBalance - startBalance,
+    startBalance,
+    endBalance,
+    hasHistory: true,
+  }
+}
+
+// Conditional Home insight. Every branch is derived from stored records, so
+// when nothing notable is true the caller renders nothing rather than a
+// permanent placeholder card.
+export type HomeInsightTone = 'attention' | 'caution' | 'positive'
+
+export interface HomeInsight {
+  key: string
+  tone: HomeInsightTone
+  title: string
+  message: string
+  amount: number
+}
+
+const COMMITMENT_PRESSURE_SHARE = 0.4
+
+export function getHomeInsight(
+  data: PersonalFinanceData,
+): HomeInsight | undefined {
+  const overdueOutgoing = [
+    ...getOutstandingPayableItems(data)
+      .filter((item) => item.status === 'overdue')
+      .map((item) => item.remainingAmount),
+    ...data.planningCommitments
+      .filter((item) => item.status === 'overdue')
+      .map((item) => item.amount),
+  ]
+
+  if (overdueOutgoing.length > 0) {
+    const total = sumAmounts(overdueOutgoing, (amount) => amount)
+
+    return {
+      key: `overdue-outgoing:${overdueOutgoing.length}:${total}`,
+      tone: 'attention',
+      title:
+        overdueOutgoing.length === 1
+          ? '1 payment is overdue'
+          : `${overdueOutgoing.length} payments are overdue`,
+      message: 'Settling these first keeps your planning list accurate.',
+      amount: total,
+    }
+  }
+
+  const overdueIncoming = getOutstandingReceivableItems(data).filter(
+    (item) => item.status === 'overdue',
+  )
+
+  if (overdueIncoming.length > 0) {
+    const total = sumAmounts(overdueIncoming, (item) => item.remainingAmount)
+
+    return {
+      key: `overdue-incoming:${overdueIncoming.length}:${total}`,
+      tone: 'caution',
+      title:
+        overdueIncoming.length === 1
+          ? '1 receivable is past its due date'
+          : `${overdueIncoming.length} receivables are past their due date`,
+      message: 'This money is still recorded as expected from others.',
+      amount: total,
+    }
+  }
+
+  const totalAvailable = getTotalAvailable(data)
+  const remainingCommitments = getRemainingCommitments(data)
+  const safeToSpend = getSafeToSpend(data)
+
+  if (totalAvailable > 0 && remainingCommitments > 0 && safeToSpend === 0) {
+    return {
+      key: `safe-to-spend-exhausted:${totalAvailable}:${remainingCommitments}`,
+      tone: 'caution',
+      title: 'Upcoming commitments cover your whole balance',
+      message: 'Nothing is left to spend freely until something is settled.',
+      amount: remainingCommitments,
+    }
+  }
+
+  if (
+    totalAvailable > 0 &&
+    remainingCommitments > 0 &&
+    remainingCommitments >= totalAvailable * COMMITMENT_PRESSURE_SHARE
+  ) {
+    return {
+      key: `commitment-pressure:${totalAvailable}:${remainingCommitments}`,
+      tone: 'caution',
+      title: 'Commitments take a large share of your balance',
+      message: 'Safe to spend already accounts for these.',
+      amount: remainingCommitments,
+    }
+  }
+
+  const monthlyTransactions = getMonthlyTransactions(data)
+  const netMonthlyPosition = getNetMonthlyPosition(data)
+
+  if (
+    monthlyTransactions.length >= 3 &&
+    getMonthlyIncome(data) > 0 &&
+    netMonthlyPosition > 0
+  ) {
+    return {
+      key: `positive-month:${data.reportingMonth}:${netMonthlyPosition}`,
+      tone: 'positive',
+      title: 'Money in is ahead of money out this month',
+      message: 'Based on the transactions recorded so far.',
+      amount: netMonthlyPosition,
+    }
+  }
+
+  return undefined
 }

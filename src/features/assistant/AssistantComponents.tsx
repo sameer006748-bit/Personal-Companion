@@ -136,7 +136,7 @@ function AssistantActionPreview({ proposal, isExecuting, onConfirm, onCancel }: 
         ? 'Nothing was recorded. Review current records and prepare a new preview.'
         : 'This preview is no longer active.'
   return (
-    <section className="assistant-action-preview glass-elevated" aria-label={proposalTitle(proposal.actionType)}>
+    <section className={`assistant-action-preview glass-elevated is-${proposal.status}`} aria-label={proposalTitle(proposal.actionType)}>
       <p className="assistant-action-kicker">{kicker}</p>
       <h3>{proposalTitle(proposal.actionType)}</h3>
       {proposal.actionType !== 'update-preference' ? <PrivateAmount amount={proposal.amountPkr} /> : null}
@@ -182,7 +182,7 @@ function AssistantActionBatchPreview({ batch, isExecuting, onConfirm, onCancel }
         ? 'Nothing was recorded. Review current records and prepare a new preview.'
         : 'This preview is no longer active.'
   return (
-    <section className="assistant-action-preview glass-elevated" aria-label={`Review ${batch.actionCount} actions`}>
+    <section className={`assistant-action-preview glass-elevated is-${batch.status}`} aria-label={`Review ${batch.actionCount} actions`}>
       <p className="assistant-action-kicker">{kicker}</p>
       <h3>{batch.actionCount} actions</h3>
       <ol className="assistant-action-batch-list">

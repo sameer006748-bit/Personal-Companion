@@ -15,18 +15,25 @@ import type { LocalTransaction } from '../../models/finance'
 interface TransactionDialogProps {
   onClose: () => void
   transaction?: LocalTransaction
+  // Lets Home's quick actions open this same dialog pre-set to income or
+  // expense. Only the starting tab differs; validation and persistence stay
+  // exactly as they are for every other entry point.
+  initialType?: TransactionType
 }
 
-export function TransactionDialog({ onClose, transaction }: TransactionDialogProps) {
+export function TransactionDialog({ onClose, transaction, initialType }: TransactionDialogProps) {
   const finance = useAppStore((state) => state.finance)
   const createTransaction = useAppStore((state) => state.createFinanceTransaction)
   const accounts = getActiveAccounts(finance)
   const defaultAccount = accounts.find((account) => account.isDefault) ?? accounts[0]
-  const [type, setType] = useState<TransactionType>(transaction?.type ?? 'expense')
+  const [type, setType] = useState<TransactionType>(transaction?.type ?? initialType ?? 'expense')
   const [amount, setAmount] = useState(String(transaction?.amount ?? ''))
   const [accountId, setAccountId] = useState<AccountId>(transaction?.accountId ?? defaultAccount?.id ?? '')
   const [destinationAccountId, setDestinationAccountId] = useState<AccountId>(transaction?.destinationAccountId ?? '')
-  const [categoryId, setCategoryId] = useState(transaction?.categoryId ?? 'groceries')
+  const [categoryId, setCategoryId] = useState(
+    transaction?.categoryId ??
+      (initialType === 'income' ? INCOME_CATEGORIES[0]?.id ?? 'client-payment' : 'groceries'),
+  )
   const [title, setTitle] = useState(transaction?.title ?? '')
   const [personOrBusiness, setPersonOrBusiness] = useState(transaction?.personOrBusiness ?? '')
   const [note, setNote] = useState(transaction?.note ?? '')
