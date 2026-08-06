@@ -5237,3 +5237,819 @@ body:has(.finance-dialog-backdrop) .floating-navigation { visibility: hidden; po
 .navigation-link {
   font-size: 0.8125rem;
 }
+
+/* Theme consistency rollout: Activity, Planning, Assistant, and Profile.
+   This layer intentionally changes presentation only and reuses the established
+   Warm Sage, Deep Ocean, glass, field, and semantic tokens. */
+.activity-header,
+.planning-header,
+.assistant-page-header,
+.profile-header {
+  position: relative;
+}
+
+.activity-header h1,
+.planning-header h1,
+.assistant-page-header h1,
+.profile-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.08;
+}
+
+.activity-add-button,
+.planning-add-button,
+.assistant-privacy-control,
+.profile-action-button,
+.profile-edit-button,
+.finance-dialog-close {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.activity-add-button,
+.planning-add-button {
+  border-radius: var(--radius-control);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 10px 20px -16px var(--glass-shadow-deep);
+}
+
+.activity-period-selector,
+.planning-period-selector {
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--glass-inset-bg), var(--surface-solid) 18%);
+}
+
+.activity-period-selector button,
+.planning-period-selector button,
+.activity-filter-chips button,
+.planning-filter-chips button,
+.profile-tabs button,
+.profile-option {
+  min-height: 44px;
+}
+
+.activity-period-selector button[aria-pressed='true'],
+.planning-period-selector button[aria-pressed='true'] {
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent), var(--glass-control-bg) 91%);
+}
+
+.activity-search,
+.activity-custom-range input,
+.profile-field input,
+.profile-field select,
+.profile-field textarea,
+.finance-dialog input,
+.finance-dialog select,
+.finance-dialog textarea,
+.planning-detail-partial input,
+.data-safety-danger input {
+  min-height: 44px;
+  border-color: var(--field-border);
+  border-bottom-color: var(--field-border-lower);
+  background: var(--field-bg);
+}
+
+/* Activity */
+.activity-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.75rem;
+}
+
+.activity-header .activity-period-selector {
+  grid-column: 1 / -1;
+}
+
+.activity-tools {
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.activity-search {
+  min-height: 46px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--field-bg), var(--glass-control-bg) 35%);
+}
+
+.activity-summary {
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.activity-summary-card {
+  min-height: 6rem;
+  padding: 0.85rem;
+  border-color: var(--glass-rim);
+  border-radius: var(--radius-surface);
+  background: color-mix(in srgb, var(--glass-surface-bg), var(--surface-solid) 16%);
+}
+
+.activity-summary-card > span:nth-child(2) {
+  color: var(--ink-secondary);
+}
+
+.activity-summary-card > .private-amount {
+  font-size: 0.94rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.activity-timeline {
+  margin-top: 1rem;
+  padding: var(--card-pad);
+  border-radius: var(--radius-surface);
+}
+
+.timeline-list {
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--surface-solid), var(--glass-inset-bg) 42%);
+}
+
+.timeline-row {
+  min-height: 4.75rem;
+  padding: 0.65rem 0.7rem;
+}
+
+.timeline-row + .timeline-row {
+  border-top-color: color-mix(in srgb, var(--glass-border), var(--ink-tertiary) 10%);
+}
+
+.timeline-copy strong {
+  font-size: var(--text-body-small);
+  letter-spacing: 0;
+}
+
+.timeline-meta > .private-amount {
+  font-size: var(--text-body-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-status,
+.planning-status,
+.planning-net-badge {
+  min-height: 1.65rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.48rem;
+}
+
+.status-received,
+.status-paid,
+.planning-status.status-received,
+.planning-status.status-paid {
+  border-color: color-mix(in srgb, var(--positive), transparent 65%);
+  background: color-mix(in srgb, var(--positive), transparent 91%);
+}
+
+.status-partially-received,
+.status-partially-paid,
+.status-due-soon,
+.status-pending {
+  border-color: color-mix(in srgb, var(--accent), transparent 65%);
+  background: color-mix(in srgb, var(--accent), transparent 91%);
+}
+
+.status-upcoming,
+.planning-status.status-upcoming {
+  border-color: color-mix(in srgb, var(--tone-bills), transparent 62%);
+  color: var(--tone-bills);
+  background: color-mix(in srgb, var(--tone-bills), transparent 91%);
+}
+
+.activity-empty-state,
+.planning-empty-state {
+  border-radius: var(--radius-surface);
+  background: color-mix(in srgb, var(--glass-surface-bg), var(--surface-solid) 18%);
+}
+
+.activity-empty-state h2,
+.planning-empty-state h2 {
+  font-size: var(--text-card-title);
+}
+
+.activity-empty-state p,
+.planning-empty-state p {
+  font-size: var(--text-body-small);
+}
+
+/* Planning */
+.planning-subtitle,
+.profile-subtitle {
+  max-width: 28rem;
+  font-size: var(--text-body-small);
+}
+
+.planning-header-actions {
+  gap: 0.65rem;
+}
+
+.planning-add-button {
+  min-height: 44px;
+  padding-inline: 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent), transparent 56%);
+  background: color-mix(in srgb, var(--accent), var(--glass-control-bg) 90%);
+}
+
+.planning-summary {
+  margin-top: 1rem;
+  border-radius: var(--radius-hero);
+  background: color-mix(in srgb, var(--glass-hero-bg), var(--surface-solid) 14%);
+}
+
+.planning-summary-heading h2,
+.activity-section-heading h2 {
+  font-size: var(--text-section-title);
+  letter-spacing: 0;
+}
+
+.planning-summary-grid {
+  gap: 0.65rem;
+}
+
+.planning-summary-item {
+  min-height: 5.2rem;
+  align-content: space-between;
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--glass-inset-bg), var(--surface-solid) 20%);
+}
+
+.planning-summary-item > .private-amount {
+  font-size: var(--text-body);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.planning-summary-item.upcoming > .private-amount {
+  color: var(--tone-bills);
+}
+
+.planning-attention {
+  border-color: color-mix(in srgb, var(--negative), var(--glass-rim) 68%);
+  border-radius: var(--radius-surface);
+  background: color-mix(in srgb, var(--negative), var(--glass-surface-bg) 95%);
+}
+
+.attention-list,
+.planning-list {
+  border-top-color: color-mix(in srgb, var(--glass-border), var(--ink-tertiary) 10%);
+}
+
+.attention-row,
+.planning-row-trigger {
+  min-height: 4.75rem;
+}
+
+.attention-type-icon.type-commitment,
+.commitment-category-icon {
+  color: var(--tone-plan);
+  border-color: color-mix(in srgb, var(--tone-plan), transparent 68%);
+  background: color-mix(in srgb, var(--tone-plan), transparent 91%);
+}
+
+.planning-content {
+  gap: 1rem;
+}
+
+.planning-section {
+  border-radius: var(--radius-surface);
+  background: color-mix(in srgb, var(--glass-surface-bg), var(--surface-solid) 12%);
+}
+
+.planning-section:has(.section-icon.receive) {
+  border-color: color-mix(in srgb, var(--positive), var(--glass-rim) 78%);
+}
+
+.planning-section:has(.section-icon.pay) {
+  border-color: color-mix(in srgb, var(--negative), var(--glass-rim) 82%);
+}
+
+.planning-row-copy strong,
+.planning-row-remaining > .private-amount {
+  font-size: var(--text-body-small);
+  letter-spacing: 0;
+}
+
+.planning-row-amounts {
+  font-size: var(--text-helper);
+}
+
+.planning-progress {
+  height: 0.5rem;
+  border: 0;
+  background: color-mix(in srgb, var(--glass-inset-bg), var(--canvas-deep) 26%);
+}
+
+.planning-progress > span {
+  background: linear-gradient(90deg, var(--accent), var(--positive));
+}
+
+.commitment-row .planning-progress > span {
+  background: linear-gradient(90deg, var(--tone-plan), var(--accent));
+}
+
+/* Assistant */
+.assistant-page-header {
+  gap: 1rem;
+}
+
+.assistant-header-controls {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.assistant-privacy-control {
+  border-radius: var(--radius-control);
+}
+
+.assistant-intro {
+  gap: 0.85rem;
+  margin-top: 1rem;
+  padding: var(--card-pad);
+  border-radius: var(--radius-hero);
+  background: color-mix(in srgb, var(--glass-hero-bg), var(--surface-solid) 12%);
+}
+
+.assistant-intro h2,
+.assistant-action-preview > h3 {
+  letter-spacing: 0;
+}
+
+.assistant-suggestions {
+  margin-top: 1rem;
+}
+
+.assistant-suggestion-list,
+.assistant-follow-ups {
+  margin-inline: calc(var(--page-inline) * -1);
+  padding-inline: var(--page-inline);
+  overscroll-behavior-x: contain;
+  scroll-padding-inline: var(--page-inline);
+  scroll-snap-type: x proximity;
+}
+
+.assistant-suggestion,
+.assistant-follow-ups button {
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--glass-control-bg), var(--surface-solid) 12%);
+  scroll-snap-align: start;
+}
+
+.assistant-conversation {
+  gap: 1rem;
+}
+
+.assistant-message.is-user {
+  border-color: color-mix(in srgb, var(--accent), transparent 55%);
+  background: color-mix(in srgb, var(--accent), var(--glass-control-bg) 84%);
+}
+
+.assistant-message.is-assistant {
+  padding: 0.85rem 0.9rem;
+  border: 1px solid var(--glass-border);
+  border-left: 3px solid color-mix(in srgb, var(--accent), transparent 38%);
+  border-radius: 0.45rem 1rem 1rem 1rem;
+  background: color-mix(in srgb, var(--glass-surface-bg), var(--surface-solid) 12%);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+
+.assistant-message > p {
+  letter-spacing: 0;
+}
+
+.assistant-insight {
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--glass-inset-bg), var(--surface-solid) 18%);
+}
+
+.assistant-metric > .private-amount,
+.assistant-insight-row > .private-amount {
+  font-size: var(--text-body-small);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.assistant-action-preview,
+.assistant-action-receipt,
+.assistant-memory-preview,
+.assistant-clear-confirm {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--glass-elevated-bg), var(--surface-solid) 15%);
+}
+
+.assistant-action-preview {
+  border-left: 3px solid var(--tone-plan);
+}
+
+.assistant-action-receipt {
+  border-color: color-mix(in srgb, var(--positive), var(--glass-border) 68%);
+  background: color-mix(in srgb, var(--positive), var(--glass-surface-bg) 94%);
+}
+
+.assistant-action-preview.is-cancelled {
+  border-left-color: var(--ink-tertiary);
+  background: color-mix(in srgb, var(--glass-inset-bg), var(--surface-solid) 18%);
+}
+
+.assistant-action-buttons button {
+  border-radius: var(--radius-control);
+}
+
+.assistant-composer {
+  bottom: calc(var(--nav-block) + 0.75rem);
+  min-height: 3.75rem;
+  border-radius: var(--radius-elevated);
+  background: color-mix(in srgb, var(--glass-elevated-bg), var(--elevated-solid) 16%);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 16px 30px -20px var(--glass-shadow-deep);
+}
+
+.assistant-send {
+  min-width: 48px;
+  min-height: 48px;
+  border-radius: var(--radius-control);
+}
+
+/* Profile */
+.profile-identity {
+  margin-top: 1rem;
+  border-radius: var(--radius-hero);
+  background: color-mix(in srgb, var(--glass-hero-bg), var(--surface-solid) 14%);
+}
+
+.profile-avatar {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: var(--radius-control);
+}
+
+.profile-identity-copy strong {
+  font-size: var(--text-body);
+  letter-spacing: 0;
+}
+
+.profile-identity-copy small,
+.profile-identity-details dd {
+  overflow-wrap: anywhere;
+}
+
+.profile-tabs {
+  gap: 0.45rem;
+}
+
+.profile-tabs button,
+.profile-option {
+  background: color-mix(in srgb, var(--glass-inset-bg), var(--surface-solid) 18%);
+}
+
+.profile-tabs button.is-active,
+.profile-option.is-selected {
+  border-color: color-mix(in srgb, var(--accent), transparent 35%);
+  background: color-mix(in srgb, var(--accent), var(--glass-control-bg) 88%);
+}
+
+.profile-section,
+.profile-edit,
+.cloud-sync {
+  border-radius: var(--radius-surface);
+  background: color-mix(in srgb, var(--glass-surface-bg), var(--surface-solid) 12%);
+}
+
+.profile-section-title,
+.profile-edit h2,
+.cloud-sync-header h2,
+.data-safety-preview h3 {
+  letter-spacing: 0;
+}
+
+.profile-setting-row {
+  min-height: 4.25rem;
+}
+
+.profile-setting-value {
+  max-width: 12rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.profile-toggle {
+  width: 3.2rem;
+  height: 2rem;
+  border-color: var(--field-border-lower);
+  background: color-mix(in srgb, var(--glass-inset-bg), var(--surface-solid) 18%);
+}
+
+.profile-toggle-thumb {
+  top: 0.2rem;
+  left: 0.2rem;
+  width: 1.45rem;
+  height: 1.45rem;
+}
+
+.profile-toggle.is-active {
+  border-color: color-mix(in srgb, var(--accent), transparent 36%);
+  background: color-mix(in srgb, var(--accent), transparent 75%);
+}
+
+.profile-toggle.is-active .profile-toggle-thumb {
+  transform: translateX(1.3rem);
+  background: var(--accent-strong);
+}
+
+.cloud-sync-header,
+.cloud-account,
+.cloud-metrics div,
+.cloud-sync-confirm,
+.data-safety,
+.data-safety-preview {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cloud-account,
+.cloud-metrics div,
+.cloud-sync-confirm {
+  background: color-mix(in srgb, var(--glass-inset-bg), var(--surface-solid) 18%);
+}
+
+.cloud-sync .data-safety {
+  margin-top: 1.2rem;
+  padding: 1rem 0 0;
+  border: 0;
+  border-top: 1px solid var(--glass-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.cloud-sync .data-safety::before,
+.cloud-sync .data-safety::after {
+  display: none;
+}
+
+.data-safety-table {
+  table-layout: fixed;
+}
+
+.data-safety-table th,
+.data-safety-table td {
+  overflow-wrap: anywhere;
+}
+
+.data-safety-danger {
+  margin-top: 1rem;
+  border-color: color-mix(in srgb, var(--negative), transparent 68%);
+  background: color-mix(in srgb, var(--negative), transparent 95%);
+}
+
+.cloud-sign-out,
+.profile-clear-confirm,
+.data-safety .finance-dialog-save.is-destructive {
+  box-shadow: none;
+}
+
+/* Shared dialogs retain their behavior while matching both approved themes. */
+.finance-dialog-backdrop {
+  background: rgb(20 31 30 / 0.74);
+}
+
+.finance-dialog {
+  border-radius: var(--radius-elevated);
+  background: color-mix(in srgb, var(--elevated-solid), var(--glass-elevated-bg) 28%);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 24px 54px -28px var(--glass-shadow-deep);
+}
+
+.finance-dialog h2 {
+  letter-spacing: 0;
+}
+
+.finance-detail-list > div,
+.planning-detail-note {
+  background: color-mix(in srgb, var(--glass-inset-bg), var(--surface-solid) 16%);
+}
+
+.finance-mode-group button,
+.finance-detail-actions button,
+.planning-detail-actions button,
+.planning-detail-partial button {
+  min-height: 44px;
+  border-radius: var(--radius-control);
+}
+
+.dark .timeline-list,
+.dark .planning-summary-item,
+.dark .planning-section,
+.dark .assistant-message.is-assistant,
+.dark .assistant-insight,
+.dark .profile-section,
+.dark .profile-edit,
+.dark .cloud-sync {
+  background: color-mix(in srgb, var(--glass-surface-bg), var(--canvas-deep) 18%);
+}
+
+.dark .assistant-message.is-user {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--accent), var(--glass-control-bg) 78%);
+}
+
+.dark .assistant-composer {
+  background: color-mix(in srgb, var(--glass-elevated-bg), var(--elevated-solid) 26%);
+}
+
+.dark .finance-dialog-backdrop {
+  background: rgb(2 9 12 / 0.84);
+}
+
+.dark .finance-dialog {
+  background: color-mix(in srgb, var(--elevated-solid), var(--glass-elevated-bg) 34%);
+}
+
+@media (max-width: 430px) {
+  .activity-header h1,
+  .planning-header h1,
+  .assistant-page-header h1,
+  .profile-header h1 {
+    font-size: 1.75rem;
+  }
+
+  .activity-add-button {
+    min-height: 44px;
+    padding-inline: 0.85rem;
+  }
+
+  .activity-tools {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .activity-range-label {
+    grid-column: 1 / -1;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .timeline-row,
+  .attention-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    padding-block: 0.75rem;
+  }
+
+  .timeline-meta,
+  .attention-meta {
+    grid-column: 2;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    justify-items: start;
+  }
+
+  .timeline-meta > .private-amount,
+  .attention-meta > .private-amount {
+    justify-self: end;
+  }
+
+  .planning-row-trigger {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+    padding-block: 0.7rem;
+  }
+
+  .planning-row-amounts {
+    width: 100%;
+    justify-items: start;
+  }
+
+  .planning-row-remaining,
+  .planning-row-original {
+    grid-auto-flow: row;
+    grid-template-columns: minmax(0, 1fr) auto;
+    width: 100%;
+  }
+
+  .planning-row-remaining > .private-amount,
+  .planning-row-original > .private-amount {
+    justify-self: end;
+  }
+
+  .assistant-page-header {
+    flex-wrap: wrap;
+  }
+
+  .assistant-page-header > div:first-child {
+    min-width: 0;
+  }
+
+  .assistant-message.is-user {
+    max-width: 94%;
+  }
+
+  .assistant-insight-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .assistant-insight-row > .private-amount {
+    justify-self: start;
+  }
+
+  .profile-identity-top {
+    grid-template-columns: auto minmax(0, 1fr) 44px;
+  }
+
+  .profile-identity-copy strong,
+  .profile-identity-copy small,
+  .profile-identity-details dd {
+    white-space: normal;
+  }
+
+  .profile-setting-row {
+    align-items: start;
+  }
+
+  .profile-clear-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .profile-clear-actions > * {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .cloud-sync-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cloud-status {
+    justify-self: start;
+  }
+
+  .data-safety-table th,
+  .data-safety-table td {
+    padding-inline: 0.3rem;
+    font-size: 0.75rem;
+  }
+
+  .finance-detail-list > div,
+  .planning-detail-partial {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .finance-detail-actions,
+  .planning-detail-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .finance-detail-actions button,
+  .planning-detail-actions button,
+  .planning-detail-partial button {
+    width: 100%;
+  }
+}
+
+@media (min-width: 768px) {
+  .activity-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .planning-header-actions {
+    justify-items: end;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .timeline-list,
+  .planning-summary,
+  .planning-section,
+  .assistant-intro,
+  .assistant-message.is-assistant,
+  .assistant-action-preview,
+  .assistant-action-receipt,
+  .assistant-composer,
+  .profile-identity,
+  .profile-section,
+  .profile-edit,
+  .cloud-sync,
+  .finance-dialog {
+    background: var(--surface-solid);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .assistant-composer,
+  .finance-dialog {
+    background: var(--elevated-solid);
+  }
+}
