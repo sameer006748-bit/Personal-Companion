@@ -76,6 +76,7 @@ export type AssistantFailureCode =
   | 'provider-timeout'
   | 'provider-unavailable'
   | 'provider-rejected'
+  | 'runtime-disabled'
   | 'auth-failed'
   | 'rate-limited'
   | 'turn-deadline-exceeded'
@@ -114,6 +115,9 @@ export interface AssistantSafeDiagnostic {
   proposalDraftsPresent?: boolean
   proposalCount?: number
   serializationCompleted?: boolean
+  requestId?: string
+  runtimeMode?: 'llm-first' | 'degraded'
+  advisoryFieldsDropped?: readonly string[]
   timingsMs?: Readonly<Record<string, number>>
 }
 
@@ -122,6 +126,9 @@ export interface AssistantPerformanceMetadata {
   roundCount?: number
   toolsExposed?: number
   toolsCalled?: number
+  requestId?: string
+  runtimeMode?: 'llm-first' | 'degraded'
+  advisoryFieldsDropped?: readonly string[]
 }
 
 export type AssistantMemoryCategory = 'communication_preference' | 'financial_goal' | 'person_alias' | 'account_preference' | 'routine_preference' | 'app_preference' | 'user_defined_fact'
@@ -184,12 +191,6 @@ export interface AssistantPersonalizationProfile {
 export interface AssistantContextMessage {
   role: AssistantRole
   text: string
-}
-
-export interface AssistantContextEntity {
-  kind: 'account' | 'person' | 'commitment' | 'transaction'
-  id: string
-  label: string
 }
 
 export interface AssistantToolAccount {
@@ -303,59 +304,21 @@ export interface AssistantToolFinanceContext {
   }[]
 }
 
-// Layer E: what the conversation is currently about. This exists so the model
-// can resolve references such as "woh", "unko" or "abhi" without the transport
-// having to send the whole transcript, and so conversational figures can be
-// labelled as conversational rather than read as current financial truth.
-export interface AssistantConversationState {
-  // One short line describing the running topic, in the user's own words.
-  summary: string
-  // References the user made that no local record could be matched to.
-  unresolvedReferences: readonly string[]
-  // A choice the user appears to be weighing, quoted from their message.
-  openDecision?: string
-  // The last question the assistant asked and the user has not yet answered.
-  pendingQuestion?: string
-  // Amounts that only ever appeared in conversation. Never authoritative, and
-  // sent explicitly so the model can tell them apart from tool results.
-  conversationalAmounts: readonly number[]
-  // True when this message reads as a continuation of the previous exchange.
-  isFollowUp: boolean
-  // Set when the previous assistant turn talked about an action but no
-  // confirmable preview exists for it. Conversation context only: none of this
-  // is a record, and none of it can be executed without a visible Confirm.
-  unresolvedAction?: AssistantUnresolvedAction
-}
-
-// What the previous turn appears to have intended but never produced. This is
-// deliberately shaped as extracted context rather than a draft: it tells the
-// model an action was discussed and not prepared, so it can prepare it properly
-// or ask once, instead of the app reporting the provider as unavailable.
-export interface AssistantUnresolvedAction {
-  // The turn claimed a preview would appear.
-  claimedPreview: boolean
-  // Whether a real validated proposal was created for that claim.
-  proposalCreated: boolean
-  // What the user seemed to be asking for, when it can be told apart safely.
-  actionType?: 'expense' | 'income' | 'receivable' | 'payable' | 'transfer'
-  // Person named in the request, if any. Conversation text, not a record.
-  personOrBusiness?: string
-  // Amount named in the request. Conversation only, never a balance.
-  amountPkr?: number
-  // Account named in the request, matched against active account labels.
-  accountLabel?: string
-  // Fields the request did not supply, so one precise question can be asked.
-  missingFields: readonly ('amount' | 'account' | 'person' | 'purpose')[]
-}
-
+/**
+ * The one request the client sends.
+ *
+ * It carries the user's message, the bounded recent transcript, their saved
+ * preferences and memories, and the deterministic finance snapshot the tools
+ * read from. It deliberately carries no locally decided intent, no resolved
+ * reference and no routing hint: what the message means is the model's work.
+ */
 export interface AssistantProviderRequest {
   version: 2
+  requestId: string
   input: AssistantTurnInput
   personalization?: AssistantPersonalizationProfile
   memories: readonly Pick<AssistantMemory, 'category' | 'summary' | 'normalizedValue' | 'displayLabel'>[]
   recentMessages: readonly AssistantContextMessage[]
-  recentEntities: readonly AssistantContextEntity[]
-  conversationState?: AssistantConversationState
   financeContext: AssistantToolFinanceContext
   pendingProposal?: AssistantActionProposal
 }
@@ -505,6 +468,11 @@ interface AssistantProviderEnvelopeBase {
   text: string
   followUps?: readonly AssistantFollowUp[]
   modelTier?: 'flash' | 'pro'
+  /**
+   * Optional display metadata, built only from validated read-tool results. The
+   * answer stands without it, so a malformed card is dropped rather than fatal.
+   */
+  financeCard?: AssistantInsight
 }
 
 /** Two to five actions requested in one message, previewed and confirmed as one unit. */
@@ -519,18 +487,15 @@ export type AssistantProviderEnvelope =
       actionProposal?: never
       actionBatch?: never
       memoryProposal?: never
-      financeCard?: never
     })
   | (AssistantProviderEnvelopeBase & {
       kind: 'advice' | 'local_fallback'
       actionProposal?: never
       actionBatch?: never
       memoryProposal?: never
-      financeCard?: never
     })
   | (AssistantProviderEnvelopeBase & {
       kind: 'finance_summary' | 'finance_list' | 'finance_detail'
-      financeCard?: AssistantInsight
       actionProposal?: never
       actionBatch?: never
       memoryProposal?: never
@@ -540,21 +505,18 @@ export type AssistantProviderEnvelope =
       actionProposal: AssistantActionDraft
       actionBatch?: never
       memoryProposal?: never
-      financeCard?: never
     })
   | (AssistantProviderEnvelopeBase & {
       kind: 'action_batch'
       actionBatch: AssistantActionBatchDraft
       actionProposal?: never
       memoryProposal?: never
-      financeCard?: never
     })
   | (AssistantProviderEnvelopeBase & {
       kind: 'memory_proposal'
       memoryProposal: AssistantMemoryDraft
       actionProposal?: never
       actionBatch?: never
-      financeCard?: never
     })
 
 interface AssistantActionBase {

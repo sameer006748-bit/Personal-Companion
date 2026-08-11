@@ -89,9 +89,9 @@ export function clearAssistantMemory(): AssistantMemoryState {
   return createInitialAssistantMemory()
 }
 
-// Which layer a category belongs to. Layer E (recent conversation) is derived
-// per turn in assistantConversation.ts, and layer F (financial records) lives in
-// the finance and planning stores. Neither is ever written through this file.
+// Which layer a category belongs to. Recent conversation is replayed to the
+// model as plain turns, and financial records live in the finance and planning
+// stores. Neither is ever written through this file.
 const CATEGORY_LAYERS: Readonly<Record<AssistantMemoryCategory, AssistantMemoryLayer>> = {
   communication_preference: 'profile',
   app_preference: 'preferences',

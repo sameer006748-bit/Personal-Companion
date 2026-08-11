@@ -5,6 +5,7 @@ import type {
   AssistantMemoryCategory,
   AssistantInsight,
   AssistantProviderEnvelope,
+  AssistantProviderResponseKind,
   AssistantProviderRequest,
   AssistantResponse,
   AssistantFailureCode,
@@ -37,6 +38,7 @@ export type AssistantFallbackReason =
   | 'provider-timeout'
   | 'provider-unreachable'
   | 'provider-rejected'
+  | 'runtime-disabled'
   | 'unavailable'
   | 'invalid-response'
   // The turn reached the model and came back understood, but no confirmable
@@ -174,6 +176,18 @@ function isFinanceCard(value: unknown): value is AssistantInsight {
 
 type EnvelopeNormalization = { ok: true; envelope: AssistantProviderEnvelope } | { ok: false; code: AssistantFailureCode; responseKind?: string }
 
+const CLIENT_TEXT_LIMIT = 1_200
+
+function boundedConversationalText(value: string): string {
+  const normalized = value.replaceAll(/\s+/gu, ' ').trim()
+  if (normalized.length <= CLIENT_TEXT_LIMIT) return normalized
+  const slice = normalized.slice(0, CLIENT_TEXT_LIMIT - 1).trimEnd()
+  const floor = Math.floor(CLIENT_TEXT_LIMIT * 0.6)
+  const punctuation = Math.max(slice.lastIndexOf('. '), slice.lastIndexOf('? '), slice.lastIndexOf('! '))
+  const boundary = punctuation >= floor ? punctuation + 1 : slice.lastIndexOf(' ')
+  return `${(boundary >= floor ? slice.slice(0, boundary) : slice).trimEnd()}…`
+}
+
 // A batch carries 2..5 drafts and is all-or-nothing: one unusable child rejects
 // the whole envelope rather than silently shrinking the plan, which is exactly
 // the failure this contract exists to prevent.
@@ -203,16 +217,29 @@ function financeItemsCard(value: unknown): AssistantInsight | undefined {
 export function normalizeAiEnvelope(value: unknown): EnvelopeNormalization {
   if (!value || typeof value !== 'object') return { ok: false, code: 'invalid-envelope' }
   const item = value as Record<string, unknown>
-  if (item.version !== 2 || typeof item.text !== 'string') return { ok: false, code: 'invalid-envelope' }
+  if (typeof item.text !== 'string') return { ok: false, code: 'invalid-envelope' }
+  // Only payloads that could become a record are strict. Display metadata is
+  // not, so a malformed card never invalidates the envelope carrying it.
+  const carriesStrictPayload = item.actionProposal !== undefined || item.actionBatch !== undefined ||
+    item.memoryProposal !== undefined
+  if (item.version !== undefined && item.version !== 2 && carriesStrictPayload) return { ok: false, code: 'invalid-envelope' }
   const rawKind = item.kind
-  const kind = rawKind === 'finance' ? 'finance_summary' : rawKind
-  if (kind !== 'conversation' && kind !== 'advice' && kind !== 'clarification' &&
-      kind !== 'finance_summary' && kind !== 'finance_list' && kind !== 'finance_detail' &&
-      kind !== 'action_proposal' && kind !== 'action_batch' && kind !== 'memory_proposal' && kind !== 'local_fallback') {
+  const normalizedKind = rawKind === 'finance' ? 'finance_summary' : rawKind
+  const supportedKinds = new Set<AssistantProviderResponseKind>([
+    'conversation', 'advice', 'clarification', 'finance_summary', 'finance_list',
+    'finance_detail', 'action_proposal', 'action_batch', 'memory_proposal', 'local_fallback',
+  ])
+  if (normalizedKind !== undefined && !supportedKinds.has(normalizedKind as AssistantProviderResponseKind) && carriesStrictPayload) {
     return { ok: false, code: 'unsupported-kind', ...(typeof rawKind === 'string' ? { responseKind: rawKind } : {}) }
   }
-  const text = item.text.replaceAll(/\s+/gu, ' ').trim()
-  if (text.length < 2 || text.length > 1_200 || /https?:\/\/|<[a-z/]|```/iu.test(text)) return { ok: false, code: 'malformed-result', responseKind: kind }
+  const kind: AssistantProviderResponseKind = supportedKinds.has(normalizedKind as AssistantProviderResponseKind)
+    ? normalizedKind as AssistantProviderResponseKind
+    : 'conversation'
+  const normalizedText = item.text.replaceAll(/\s+/gu, ' ').trim()
+  const requiresCompleteText = kind === 'action_proposal' || kind === 'action_batch' || kind === 'memory_proposal'
+  if (requiresCompleteText && normalizedText.length > CLIENT_TEXT_LIMIT) return { ok: false, code: 'malformed-result', responseKind: kind }
+  const text = requiresCompleteText ? normalizedText : boundedConversationalText(normalizedText)
+  if (text.length < 2 || /https?:\/\/|<[a-z/]|```/iu.test(text)) return { ok: false, code: 'malformed-result', responseKind: kind }
 
   const followUps = Array.isArray(item.followUps)
     ? item.followUps
@@ -231,13 +258,22 @@ export function normalizeAiEnvelope(value: unknown): EnvelopeNormalization {
     : item.modelTier === 'flash'
       ? 'flash'
       : undefined
-  const base = { version: 2 as const, text, ...(followUps.length ? { followUps } : {}), ...(modelTier ? { modelTier } : {}) }
+  // Display metadata is optional and advisory. A card that does not validate is
+  // dropped, never a reason to reject an answer that is otherwise safe: the
+  // prose already carries the authoritative figures the tools returned, and
+  // refusing the whole turn over a malformed row is what previously turned a
+  // correct reply into "AI response was rejected". Both card shapes at once is
+  // ambiguous, so neither is shown. Nothing here can become a record.
+  const listCard = financeItemsCard(item.financeItems)
+  const objectCard = isFinanceCard(item.financeCard) ? item.financeCard : undefined
+  const financeCard = listCard && objectCard ? undefined : objectCard ?? listCard
+  const base = { version: 2 as const, text, ...(followUps.length ? { followUps } : {}), ...(modelTier ? { modelTier } : {}), ...(financeCard ? { financeCard } : {}) }
   if (kind === 'action_proposal') {
-    if (!isActionDraft(item.actionProposal) || item.actionBatch !== undefined || item.memoryProposal !== undefined || item.financeCard !== undefined) return { ok: false, code: 'proposal-invalid', responseKind: kind }
+    if (!isActionDraft(item.actionProposal) || item.actionBatch !== undefined || item.memoryProposal !== undefined) return { ok: false, code: 'proposal-invalid', responseKind: kind }
     return { ok: true, envelope: { ...base, kind, actionProposal: item.actionProposal } }
   }
   if (kind === 'action_batch') {
-    if (item.actionProposal !== undefined || item.memoryProposal !== undefined || item.financeCard !== undefined) return { ok: false, code: 'batch-invalid', responseKind: kind }
+    if (item.actionProposal !== undefined || item.memoryProposal !== undefined) return { ok: false, code: 'batch-invalid', responseKind: kind }
     const batch = item.actionBatch
     if (!batch || typeof batch !== 'object') return { ok: false, code: 'batch-invalid', responseKind: kind }
     const actions = actionBatchDrafts((batch as Record<string, unknown>).actions)
@@ -249,18 +285,14 @@ export function normalizeAiEnvelope(value: unknown): EnvelopeNormalization {
     return { ok: true, envelope: { ...base, kind, actionBatch: { actionCount: actions.length, actions } } }
   }
   if (kind === 'memory_proposal') {
-    if (!isMemoryDraft(item.memoryProposal) || item.actionProposal !== undefined || item.actionBatch !== undefined || item.financeCard !== undefined) return { ok: false, code: 'malformed-result', responseKind: kind }
+    if (!isMemoryDraft(item.memoryProposal) || item.actionProposal !== undefined || item.actionBatch !== undefined) return { ok: false, code: 'malformed-result', responseKind: kind }
     return { ok: true, envelope: { ...base, kind, memoryProposal: item.memoryProposal } }
   }
   if (kind === 'finance_summary' || kind === 'finance_list' || kind === 'finance_detail') {
     if (item.actionProposal !== undefined || item.actionBatch !== undefined || item.memoryProposal !== undefined) return { ok: false, code: 'malformed-result', responseKind: kind }
-    const listCard = item.financeItems === undefined ? undefined : financeItemsCard(item.financeItems)
-    if (item.financeItems !== undefined && !listCard) return { ok: false, code: 'tool-result-invalid', responseKind: kind }
-    if (item.financeCard !== undefined && !isFinanceCard(item.financeCard)) return { ok: false, code: 'tool-result-invalid', responseKind: kind }
-    const financeCard = item.financeCard ?? listCard
-    return { ok: true, envelope: { ...base, kind, ...(financeCard ? { financeCard } : {}) } }
+    return { ok: true, envelope: { ...base, kind } }
   }
-  if (item.actionProposal !== undefined || item.actionBatch !== undefined || item.memoryProposal !== undefined || item.financeCard !== undefined || item.financeItems !== undefined) return { ok: false, code: 'malformed-result', responseKind: kind }
+  if (item.actionProposal !== undefined || item.actionBatch !== undefined || item.memoryProposal !== undefined) return { ok: false, code: 'malformed-result', responseKind: kind }
   return { ok: true, envelope: { ...base, kind } }
 }
 
@@ -279,12 +311,20 @@ const ACTION_NOT_PREPARED_CODES: ReadonlySet<string> = new Set([
   'action-count-mismatch',
   'action-limit-exceeded',
   'batch-invalid',
+  // The Edge emits these when a turn was understood and answered but the drafted
+  // action did not survive validation. They were previously unmapped and fell
+  // through to `unavailable`, so an action turn the service had actually replied
+  // to told the user the AI was down.
+  'proposal-invalid',
+  'unsupported-action',
+  'local-record-not-found',
 ])
 
 export function classifyFunctionError(
   status: number | undefined,
   code: string | undefined,
   reason: string | undefined,
+  errorName?: string,
 ): AssistantFallbackReason {
   if (status === 401 || status === 403) return 'signed-out'
   if (status === 429) return 'rate-limited'
@@ -292,6 +332,7 @@ export function classifyFunctionError(
   if (code === 'usage-unavailable') return 'usage-unavailable'
   if (code === 'invalid-request' || code === 'request-invalid' || code === 'method-not-allowed') return 'invalid-response'
   if (code === 'invalid-model-response' || code === 'invalid-envelope') return 'invalid-response'
+  if (code === 'runtime-disabled') return 'runtime-disabled'
   if (code === 'rate-limited') return 'rate-limited'
   if (code && ACTION_NOT_PREPARED_CODES.has(code)) return 'action-not-prepared'
   if (code === 'turn-deadline-exceeded' || code === 'provider-timeout') return 'provider-timeout'
@@ -299,12 +340,21 @@ export function classifyFunctionError(
   if (code === 'malformed-result' || code === 'tool-result-invalid' || code === 'unsupported-kind' ||
       code === 'final-number-invalid' || code === 'stale-conversation-number' ||
       code === 'serialization-failed') return 'invalid-response'
+  if (code === 'auth-failed') return 'signed-out'
   if (code === 'provider-unavailable' || code === 'edge-unhandled-failure' || code === 'unknown-safe-failure') {
     if (reason === 'timeout') return 'provider-timeout'
     if (reason === 'unreachable') return 'provider-unreachable'
     if (reason === 'rejected') return 'provider-rejected'
     if (reason === 'malformed') return 'invalid-response'
   }
+  // Nothing above matched, which on Android usually means the invoke error
+  // carried no readable Response at all. The error class is then the only real
+  // signal left, and it distinguishes "the request never landed" from "the
+  // service answered with a status we could not read". Collapsing both into
+  // `unavailable` is what made a reachable service report itself as down.
+  if (errorName === 'FunctionsFetchError') return 'network'
+  if (errorName === 'FunctionsRelayError') return 'provider-unreachable'
+  if (errorName === 'FunctionsHttpError' && status === undefined) return 'provider-rejected'
   return 'unavailable'
 }
 
@@ -323,22 +373,72 @@ function safeFailureEnvelope(value: unknown): { code: string; reason?: string; d
   return { code: item.error, ...(reason ? { reason } : {}), ...(parsed ? { diagnostic: parsed } : {}) }
 }
 
+interface ResponseLike {
+  status?: unknown
+  clone?: unknown
+  json?: unknown
+  text?: unknown
+  body?: unknown
+  data?: unknown
+}
+
+/**
+ * Reads the body off whatever supabase-js attached to the error, without
+ * assuming it is a `Response` of this realm. The streaming accessors are tried
+ * first and a clone is preferred so a real `Response` is not consumed; a bridged
+ * response that already carries a parsed or stringified body is read directly.
+ */
+async function readResponseLikeBody(candidate: ResponseLike): Promise<unknown> {
+  try {
+    if (typeof candidate.clone === 'function' && typeof candidate.json === 'function') {
+      return await (candidate.clone as () => { json: () => Promise<unknown> })().json()
+    }
+    if (typeof candidate.json === 'function') return await (candidate.json as () => Promise<unknown>)()
+    if (typeof candidate.text === 'function') {
+      const raw = await (candidate.text as () => Promise<string>)()
+      if (typeof raw === 'string' && raw.trim()) return JSON.parse(raw) as unknown
+    }
+  } catch {
+    // Fall through to the already-materialised shapes below.
+  }
+  const inline = candidate.body ?? candidate.data
+  if (inline && typeof inline === 'object') return inline
+  if (typeof inline === 'string' && inline.trim()) {
+    try {
+      return JSON.parse(inline) as unknown
+    } catch {
+      return undefined
+    }
+  }
+  return undefined
+}
+
+/**
+ * The Android failure point. supabase-js attaches the failed response to
+ * `error.context`, but under the Capacitor WebView that object is not an
+ * `instanceof Response` of this realm. The old identity check therefore
+ * discarded the status, the safe-failure code and the server diagnostic on every
+ * non-2xx, leaving `classifyFunctionError` with three `undefined`s and no choice
+ * but its generic `unavailable`. The shape is now read structurally.
+ */
 async function readFunctionErrorCodes(
   error: unknown,
 ): Promise<{ status?: number; code?: string; reason?: string; diagnostic?: AssistantSafeDiagnostic }> {
   const context = (error as { context?: unknown }).context
-  if (!(context instanceof Response)) return {}
-  const status = context.status
-  try {
-    const body: unknown = await context.clone().json()
-    if (!body || typeof body !== 'object') return { status }
-    const record = body as Record<string, unknown>
-    const code = typeof record.error === 'string' && record.error.length <= 40 ? record.error : undefined
-    const reason = typeof record.reason === 'string' && record.reason.length <= 40 ? record.reason : undefined
-    const diagnostic = safeDiagnostic(record.diagnostic)
-    return { status, ...(code ? { code } : {}), ...(reason ? { reason } : {}), ...(diagnostic ? { diagnostic } : {}) }
-  } catch {
-    return { status }
+  if (!context || typeof context !== 'object') return {}
+  const candidate = context as ResponseLike
+  const status = typeof candidate.status === 'number' && Number.isFinite(candidate.status) ? candidate.status : undefined
+  const body = await readResponseLikeBody(candidate)
+  if (!body || typeof body !== 'object') return status === undefined ? {} : { status }
+  const record = body as Record<string, unknown>
+  const code = typeof record.error === 'string' && record.error.length <= 40 ? record.error : undefined
+  const reason = typeof record.reason === 'string' && record.reason.length <= 40 ? record.reason : undefined
+  const parsed = safeDiagnostic(record.diagnostic)
+  return {
+    ...(status === undefined ? {} : { status }),
+    ...(code ? { code } : {}),
+    ...(reason ? { reason } : {}),
+    ...(parsed ? { diagnostic: parsed } : {}),
   }
 }
 
@@ -349,7 +449,7 @@ const FAILURE_CODES = new Set<AssistantFailureCode>([
   'action-count-mismatch', 'action-limit-exceeded', 'batch-invalid', 'local-record-not-found',
   'request-invalid', 'provider-timeout', 'provider-unavailable', 'provider-rejected', 'auth-failed',
   'rate-limited', 'turn-deadline-exceeded', 'serialization-failed', 'edge-unhandled-failure',
-  'unknown-safe-failure',
+  'unknown-safe-failure', 'runtime-disabled',
 ])
 const FAILURE_STAGES = new Set<AssistantFailureStage>([
   'client-context', 'client-fetch', 'client-normalization',
@@ -365,6 +465,9 @@ function safeDiagnostic(value: unknown): AssistantSafeDiagnostic | undefined {
   const timingsMs = item.timingsMs && typeof item.timingsMs === 'object' && !Array.isArray(item.timingsMs)
     ? Object.fromEntries(Object.entries(item.timingsMs as Record<string, unknown>).filter(([key, timing]) => /^[a-z-]{1,40}$/u.test(key) && typeof timing === 'number' && Number.isFinite(timing) && timing >= 0).slice(0, 20)) as Record<string, number>
     : undefined
+  const advisoryFieldsDropped = Array.isArray(item.advisoryFieldsDropped)
+    ? item.advisoryFieldsDropped.filter((field): field is string => typeof field === 'string' && /^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/u.test(field)).slice(0, 12)
+    : undefined
   return {
     code: item.code as AssistantFailureCode,
     stage: item.stage as AssistantFailureStage,
@@ -376,6 +479,9 @@ function safeDiagnostic(value: unknown): AssistantSafeDiagnostic | undefined {
     ...(typeof item.proposalCount === 'number' && Number.isSafeInteger(item.proposalCount) ? { proposalCount: item.proposalCount } : {}),
     ...(typeof item.proposalDraftsPresent === 'boolean' ? { proposalDraftsPresent: item.proposalDraftsPresent } : {}),
     ...(typeof item.serializationCompleted === 'boolean' ? { serializationCompleted: item.serializationCompleted } : {}),
+    ...(typeof item.requestId === 'string' && /^[a-zA-Z0-9:_-]{1,100}$/u.test(item.requestId) ? { requestId: item.requestId } : {}),
+    ...(item.runtimeMode === 'llm-first' || item.runtimeMode === 'degraded' ? { runtimeMode: item.runtimeMode } : {}),
+    ...(advisoryFieldsDropped?.length ? { advisoryFieldsDropped } : {}),
     ...(timingsMs ? { timingsMs } : {}),
   }
 }
@@ -384,17 +490,23 @@ function diagnostic(code: AssistantFailureCode, stage: AssistantFailureStage, de
   return { code, stage, ...details }
 }
 
-function safeTelemetry(value: unknown): { timingsMs?: Record<string, number>; roundCount?: number; toolsExposed?: number; toolsCalled?: number } {
+function safeTelemetry(value: unknown): { timingsMs?: Record<string, number>; roundCount?: number; toolsExposed?: number; toolsCalled?: number; requestId?: string; runtimeMode?: 'llm-first' | 'degraded'; advisoryFieldsDropped?: string[] } {
   if (!value || typeof value !== 'object') return {}
   const item = value as Record<string, unknown>
   const timingsMs = item.timingsMs && typeof item.timingsMs === 'object' && !Array.isArray(item.timingsMs)
     ? Object.fromEntries(Object.entries(item.timingsMs as Record<string, unknown>).filter(([key, timing]) => /^[a-z-]{1,40}$/u.test(key) && typeof timing === 'number' && Number.isFinite(timing) && timing >= 0).slice(0, 20)) as Record<string, number>
+    : undefined
+  const advisoryFieldsDropped = Array.isArray(item.advisoryFieldsDropped)
+    ? item.advisoryFieldsDropped.filter((field): field is string => typeof field === 'string' && /^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/u.test(field)).slice(0, 12)
     : undefined
   return {
     ...(timingsMs ? { timingsMs } : {}),
     ...(typeof item.roundCount === 'number' && Number.isSafeInteger(item.roundCount) ? { roundCount: item.roundCount } : {}),
     ...(typeof item.toolsExposed === 'number' && Number.isSafeInteger(item.toolsExposed) ? { toolsExposed: item.toolsExposed } : {}),
     ...(typeof item.toolsCalled === 'number' && Number.isSafeInteger(item.toolsCalled) ? { toolsCalled: item.toolsCalled } : {}),
+    ...(typeof item.requestId === 'string' && /^[a-zA-Z0-9:_-]{1,100}$/u.test(item.requestId) ? { requestId: item.requestId } : {}),
+    ...(item.runtimeMode === 'llm-first' || item.runtimeMode === 'degraded' ? { runtimeMode: item.runtimeMode } : {}),
+    ...(advisoryFieldsDropped?.length ? { advisoryFieldsDropped } : {}),
   }
 }
 
@@ -439,9 +551,13 @@ export async function askAssistant(
     if (timedOut) return fallback('timed-out', diagnostic('provider-timeout', 'client-fetch', { timingsMs: { fetch: fetchMs } }))
     if (settled.error) {
       if (timedOut) return fallback('timed-out')
-      if ((settled.error as { name?: string }).name === 'FunctionsFetchError') return fallback('network')
+      // The error class no longer short-circuits. A fetch failure carries no
+      // response to read, so it still classifies as `network`, but every other
+      // invoke error now has its status and safe-failure body consulted first
+      // and only falls back to the class name when nothing was readable.
+      const errorName = typeof (settled.error as { name?: unknown }).name === 'string' ? (settled.error as { name: string }).name : undefined
       const { status, code, reason, diagnostic: serverDiagnostic } = await readFunctionErrorCodes(settled.error)
-      const fallbackReason = classifyFunctionError(status, code, reason)
+      const fallbackReason = classifyFunctionError(status, code, reason, errorName)
       const fallbackCode: AssistantFailureCode = status === 401 || status === 403 ? 'auth-failed' : status === 429 ? 'rate-limited' : fallbackReason === 'provider-timeout' ? 'provider-timeout' : fallbackReason === 'provider-rejected' ? 'provider-rejected' : fallbackReason === 'invalid-response' ? 'malformed-result' : 'provider-unavailable'
       return fallback(fallbackReason, serverDiagnostic ?? diagnostic(fallbackCode, 'client-fetch', { timingsMs: { fetch: fetchMs } }))
     }
@@ -465,7 +581,7 @@ export async function askAssistant(
         intent: 'unknown',
         text: envelope.text,
         ...(envelope.followUps?.length ? { followUps: envelope.followUps } : {}),
-        ...((envelope.kind === 'finance_summary' || envelope.kind === 'finance_list' || envelope.kind === 'finance_detail') && envelope.financeCard ? { insight: envelope.financeCard } : {}),
+        ...(envelope.financeCard ? { insight: envelope.financeCard } : {}),
       },
       source: 'ai',
       ...(envelope.actionProposal ? { actionProposal: envelope.actionProposal } : {}),
@@ -478,6 +594,9 @@ export async function askAssistant(
         ...(telemetry.roundCount === undefined ? {} : { roundCount: telemetry.roundCount }),
         ...(telemetry.toolsExposed === undefined ? {} : { toolsExposed: telemetry.toolsExposed }),
         ...(telemetry.toolsCalled === undefined ? {} : { toolsCalled: telemetry.toolsCalled }),
+        ...(telemetry.requestId ? { requestId: telemetry.requestId } : {}),
+        ...(telemetry.runtimeMode ? { runtimeMode: telemetry.runtimeMode } : {}),
+        ...(telemetry.advisoryFieldsDropped?.length ? { advisoryFieldsDropped: telemetry.advisoryFieldsDropped } : {}),
       },
     }
   } catch {
@@ -500,6 +619,7 @@ export const ASSISTANT_FALLBACK_MESSAGES: Readonly<Record<AssistantFallbackReaso
   'provider-timeout': 'AI service timed out. Local answer shown.',
   'provider-unreachable': 'AI service could not be reached. Local answer shown.',
   'provider-rejected': 'AI service declined the request. Local answer shown.',
+  'runtime-disabled': 'AI reasoning is in degraded mode. Local answer shown.',
   unavailable: 'AI companion unavailable. Local answer shown.',
   'invalid-response': 'AI response was rejected. Local answer shown.',
   'action-not-prepared': 'The action could not be prepared for confirmation.',

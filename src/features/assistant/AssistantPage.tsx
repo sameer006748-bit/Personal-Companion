@@ -13,6 +13,14 @@ import { getLatestStatusNote } from '../../lib/assistantHistory'
 import type { AssistantInputMode, AssistantMessage } from '../../models/assistant'
 import { getLocalPersonalFinanceData } from '../../mocks/finance'
 import { useAppStore } from '../../store/appStore'
+import {
+  authorizeAssistantBatch,
+  authorizeAssistantProposal,
+  cancelAssistantAuthorization,
+  clearAssistantAuthorizations,
+  executeAssistantBatchThroughGateway,
+  executeAssistantProposalThroughGateway,
+} from '../../lib/assistantExecutionGateway'
 
 function getGreeting(): string {
   const hour = new Date().getHours()
@@ -49,8 +57,6 @@ export function AssistantPage() {
   const appendAssistantMessages = useAppStore((state) => state.appendAssistantMessages)
   const clearAssistantHistory = useAppStore((state) => state.clearAssistantHistory)
   const replaceAssistantMessage = useAppStore((state) => state.replaceAssistantMessage)
-  const executeAssistantProposal = useAppStore((state) => state.executeAssistantProposal)
-  const executeAssistantBatch = useAppStore((state) => state.executeAssistantBatch)
   const assistantMemory = useAppStore((state) => state.assistantMemory)
   const saveAssistantMemoryProposal = useAppStore((state) => state.saveAssistantMemoryProposal)
   const forgetAssistantMemory = useAppStore((state) => state.forgetAssistantMemory)
@@ -133,6 +139,7 @@ export function AssistantPage() {
 
   function handleClearHistory() {
     clearAssistantHistory()
+    clearAssistantAuthorizations()
     setIsConfirmingClear(false)
   }
 
@@ -140,11 +147,13 @@ export function AssistantPage() {
     const batch = message.batch
     if (batch) {
       if (batch.status !== 'proposed') return
+      cancelAssistantAuthorization(batch)
       replaceAssistantMessage(message.id, { ...message, text: 'Actions cancelled. Nothing changed.', batch: { ...batch, status: 'cancelled' }, statusNote: 'Action cancelled' })
       return
     }
     const proposal = message.proposal
     if (proposal?.status !== 'proposed') return
+    cancelAssistantAuthorization(proposal)
     replaceAssistantMessage(message.id, { ...message, text: 'Action cancelled. Nothing changed.', proposal: { ...proposal, status: 'cancelled' }, statusNote: 'Action cancelled' })
   }
 
@@ -156,10 +165,10 @@ export function AssistantPage() {
     if (batch) {
       if (batch.status !== 'proposed' || executingProposalId) return
       setExecutingProposalId(batch.batchId)
-      const result = executeAssistantBatch({ ...batch, status: 'confirmed' })
-      if (result.error) {
-        replaceAssistantMessage(message.id, { ...message, text: result.error, batch: { ...batch, status: 'failed' }, statusNote: 'Actions were not recorded' })
-      } else if (result.receipts?.length) {
+      const result = executeAssistantBatchThroughGateway(batch, authorizeAssistantBatch(batch))
+      if (result.status !== 'executed') {
+        replaceAssistantMessage(message.id, { ...message, text: 'error' in result ? result.error : 'This action was already processed.', batch: { ...batch, status: 'failed' }, statusNote: 'Actions were not recorded' })
+      } else if (result.receipts.length) {
         replaceAssistantMessage(message.id, { ...message, text: `${result.receipts.length} actions completed.`, batch: { ...batch, status: 'executed', receipts: result.receipts }, followUps: [], statusNote: 'Actions recorded locally' })
       }
       setExecutingProposalId(undefined)
@@ -168,9 +177,10 @@ export function AssistantPage() {
     const proposal = message.proposal
     if (proposal?.status !== 'proposed' || executingProposalId) return
     setExecutingProposalId(proposal.proposalId)
-    const result = executeAssistantProposal({ ...proposal, status: 'confirmed' })
-    if (result.error) {
-      replaceAssistantMessage(message.id, { ...message, text: result.error, proposal: { ...proposal, status: 'failed', validationErrors: [result.error] }, statusNote: 'Action was not recorded' })
+    const result = executeAssistantProposalThroughGateway(proposal, authorizeAssistantProposal(proposal))
+    if (result.status !== 'executed') {
+      const error = 'error' in result ? result.error : 'This action was already processed.'
+      replaceAssistantMessage(message.id, { ...message, text: error, proposal: { ...proposal, status: 'failed', validationErrors: [error] }, statusNote: 'Action was not recorded' })
     } else if (result.receipt) {
       replaceAssistantMessage(message.id, { ...message, text: 'Action completed.', proposal: { ...proposal, status: 'executed' }, receipt: result.receipt, followUps: [], statusNote: 'Action recorded locally' })
     }
